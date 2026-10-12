@@ -1,0 +1,11 @@
+.git
+node_modules
+.next
+.env*
+.cache
+.retired-prototype
+.deployment
+output
+.playwright-cli
+*.tsbuildinfo
+scripts

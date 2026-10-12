@@ -1,90 +1,129 @@
-import Link from 'next/link';
-import { ArrowRight, Database, GitBranchPlus, ShieldEllipsis, Sparkles } from 'lucide-react';
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import {Plus,GitBranch,Download,Settings,X,Send,BookOpen,MessageSquare,FileText,ListTree} from 'lucide-react';
+import {Workspace,Bible,Plan,Story,Preferences,newWorkspace,bibleFromNotes,isWorkspace} from '@/lib/story';
+import {DraftEditor} from './features/writing/draft-editor';
+import {STATIC_HOST,BASE_PATH} from '@/lib/hosting';
+import {StoryStart} from './features/writing/story-start';
+import {createSaveQueue} from '@/lib/modules/writing/save-queue';
+import {WritingRevisions} from './features/world/writing-revisions';
+import {getWriting,saveWriting} from '@/lib/modules/writing';
+import type {WorldContext} from '@/lib/modules/core/types';
+import {DirectorProposals} from './features/world/director-proposals';
+import {WorldPanel} from './features/world/world-panel';
+import {LocalProjectRepository} from '@/lib/modules/storage';
+import {createBranch,resolveWorldState} from '@/lib/modules/branches';
+import {retrieveContext} from '@/lib/modules/retrieval';
+import type {ProjectArchive} from '@/lib/modules/core/types';
+import {restoreProject,reidentifyProject} from '@/lib/modules/backup';
+const STORAGE='restory-workspaces-v2';
+type Tab='Universe'|'Director'|'Timeline'|'Draft';
+type Job={kind:string;body:object;id:string};
+function hydrateWorkspace(workspace:Workspace):Workspace {
+ if(!workspace.worldContext || workspace.worldWritingPending)return workspace;
+ const data=new LocalProjectRepository(localStorage).load(workspace.worldContext.projectId);
+ if(!data)throw Error('World memory is missing. Restore a combined backup.');
+ const writing=getWriting(data,workspace.worldContext,workspace.id);
+ return {...workspace,story:writing.draft?.content ?? workspace.story,conversation:writing.conversation?writing.conversation.messages.map(m=>({...m,role:m.role==='assistant'?'director' as const:'user' as const})):workspace.conversation};
+}
+function download(name:string,text:string,type='text/plain'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+export default function Home(){
+ const [items,setItems]=useState<Workspace[]>([]),[active,setActive]=useState(''),[ready,setReady]=useState(false),[saved,setSaved]=useState('Loading…'),[storageSafe,setStorageSafe]=useState(false),[tab,setTab]=useState<Tab>('Universe'),[creating,setCreating]=useState(false),[search,setSearch]=useState(''),[input,setInput]=useState(''),[settings,setSettings]=useState(false),[configured,setConfigured]=useState(false),[busy,setBusy]=useState(''),[error,setError]=useState(''),[retry,setRetry]=useState<Job|null>(null);
+ const [focusWriting,setFocusWriting]=useState(false);
+ const controller=useRef<AbortController|null>(null),file=useRef<HTMLInputElement>(null);
+ const itemsRef=useRef(items);itemsRef.current=items;
+ const w=items.find(v=>v.id===active);
+ const status=()=>STATIC_HOST?setConfigured(false):fetch('/api/status').then(r=>r.json()).then(r=>setConfigured(r.configured===true)).catch(()=>setConfigured(false));
+ useEffect(()=>{try{const raw=JSON.parse(localStorage.getItem(STORAGE)||'[]');if(!Array.isArray(raw)||!raw.every(isWorkspace))throw Error('Invalid saved workspaces');setItems(raw.map((v:Workspace)=>{try{return hydrateWorkspace(v)}catch(e){setError(e instanceof Error?e.message:"World memory unavailable; original writing is retained.");return v}}));setActive(raw[0]?.id||'');setStorageSafe(true)}catch{try{const raw=localStorage.getItem(STORAGE);if(raw)localStorage.setItem('restory-unreadable-backup',raw)}catch{}setError('Saved workspaces could not be read. Import a backup to recover them.');setSaved('Storage unavailable')}setReady(true);status();return()=>controller.current?.abort()},[]);
+ useEffect(()=>{if(!ready||!storageSafe)return;setSaved('Saving…');const timer=setTimeout(()=>{try{localStorage.setItem(STORAGE,JSON.stringify(items));setSaved(items.some(v=>v.worldWritingPending)?'Saved locally · world save pending':'Saved on this device')}catch{setSaved('Not saved');setError('Device storage is unavailable or full. Export a backup to protect your work.')}},250);return()=>clearTimeout(timer)},[items,ready,storageSafe]);
+ const seeds=useRef(new Map<string,Story|null>());
+ const writingQueue=useRef<ReturnType<typeof createSaveQueue<Workspace>>|null>(null);
+ if(!writingQueue.current)writingQueue.current=createSaveQueue<Workspace>(workspace=>{
+  const context=workspace.worldContext;if(!context)return;
+  const repo=new LocalProjectRepository(localStorage);let data=repo.load(context.projectId);if(!data)throw Error('World memory is missing.');
+  const previous=seeds.current.get(workspace.id);
+  if(previous && !getWriting(data,context,workspace.id).draft)data=saveWriting(data,context,workspace.id,{content:previous});
+  data=saveWriting(data,context,workspace.id,{...(workspace.story?{content:workspace.story}:{}),messages:workspace.conversation.map(m=>({...m,role:m.role==='director'?'assistant' as const:'user' as const}))});repo.save(data);seeds.current.delete(workspace.id);
+  const next=itemsRef.current.map(v=>v.id===workspace.id&&v.story===workspace.story&&v.conversation===workspace.conversation?{...v,worldWritingPending:false}:v);itemsRef.current=next;setItems(next);
+ },e=>{setError((e instanceof Error?e.message:'World save failed')+' Newer text remains in this browser workspace. Export a backup to protect it.');});
+ function flushWriting(){for(const workspace of itemsRef.current)if(workspace.worldWritingPending)writingQueue.current?.schedule(workspace.id,workspace);writingQueue.current?.flush()}
+ useEffect(()=>{if(!ready||!storageSafe)return;function flush(){flushWriting();try{localStorage.setItem(STORAGE,JSON.stringify(itemsRef.current))}catch{setSaved('Not saved');setError('Device storage is unavailable or full. Export a backup to protect your work.')}}function hidden(){if(document.visibilityState==='hidden')flush()}window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',hidden);return()=>{flush();writingQueue.current?.dispose();window.removeEventListener('pagehide',flush);document.removeEventListener('visibilitychange',hidden)}},[ready,storageSafe]);
+ useEffect(()=>{function exit(e:KeyboardEvent){if(e.key==='Escape')setFocusWriting(false)}window.addEventListener('keydown',exit);return()=>window.removeEventListener('keydown',exit)},[]);
+ function patch(p:Partial<Workspace>,id=active){
+  const current=itemsRef.current.find(v=>v.id===id);if(!current)return;
+  const writingChanged=!!(current.worldContext||p.worldContext)&&(p.story!==undefined||p.conversation!==undefined||(p.worldContext!==undefined&&!current.worldContext));
+  const next={...current,...p,updatedAt:new Date().toISOString(),worldWritingPending:writingChanged?true:current.worldWritingPending};
+  const all=itemsRef.current.map(v=>v.id===id?next:v);itemsRef.current=all;setItems(all);
+  if(writingChanged){if(!seeds.current.has(id))seeds.current.set(id,current.story);writingQueue.current!.schedule(id,next)}
+ }
+ function bindWorld(context:WorldContext){
+  flushWriting();
+  if(!w)return;
+  if(w.worldContext?.projectId===context.projectId && w.worldContext.branchId===context.branchId){patch({worldContext:context});return}
+  try{const data=new LocalProjectRepository(localStorage).load(context.projectId);if(!data)throw Error('World memory unavailable');
+   const existing=itemsRef.current.find(v=>v.worldContext?.projectId===context.projectId&&v.worldContext.branchId===context.branchId);
+   if(existing){select(existing.id);patch({worldContext:context},existing.id);return}
+   const recovered=data.writing?.drafts.find(d=>d.branchId===context.branchId);
+   const recoveredWorkspaceId=recovered?.workspaceId ?? data.writing?.conversations.find(c=>c.branchId===context.branchId)?.workspaceId;
+   if(!w.worldContext && !recoveredWorkspaceId){patch({worldContext:context});return}
+   const next={...newWorkspace(data.branches.find(b=>b.id===context.branchId)?.name || data.project.title),id:recoveredWorkspaceId ?? crypto.randomUUID(),notes:w.notes,bible:w.bible,parentId:w.id,worldContext:context,story:recovered?.content ?? null};
+   const hydrated=hydrateWorkspace(next);setItems(all=>[hydrated,...all]);select(hydrated.id);
+  }catch(e){setError(e instanceof Error?e.message:'Branch switch failed')}
+ }
+ function prefs(p:Partial<Preferences>){if(w)patch({preferences:{...w.preferences,...p}})}
+ function bible(p:Partial<Bible>){if(w?.bible)patch({bible:{...w.bible,...p}})}
+ function plan(p:Partial<Plan>){if(w?.plan)patch({plan:{...w.plan,...p}})}
+ function story(p:Partial<Story>){if(w?.story)patch({story:{...w.story,...p}})}
+ function select(id:string){flushWriting();try{const current=itemsRef.current.find(v=>v.id===id);if(current){const hydrated=hydrateWorkspace(current);setItems(all=>all.map(v=>v.id===id?hydrated:v))}}catch(e){setError(e instanceof Error?e.message:'Writing unavailable');return}controller.current?.abort();setActive(id);setCreating(false);setError('');setRetry(null);setInput('')}
+ function openInput(next:Workspace,nextTab:'Universe'|'Draft'){flushWriting();controller.current?.abort();const all=[next,...itemsRef.current];itemsRef.current=all;setStorageSafe(true);setItems(all);select(next.id);setTab(nextTab)}
+ function branch(){flushWriting();if(!w)return;try{
+  const id=crypto.randomUUID();let worldContext=w.worldContext;
+  if(worldContext){const repo=new LocalProjectRepository(localStorage),data=repo.load(worldContext.projectId);if(!data)throw Error('World memory is missing. Restore its backup first.');let nextWorld=createBranch(data,worldContext,`${w.title} — branch`,worldContext.atOrder ?? Math.max(data.branches.find(b=>b.id===worldContext!.branchId)?.divergenceOrder ?? 0,...resolveWorldState(data,worldContext).events.map(e=>e.order)));worldContext={projectId:worldContext.projectId,branchId:nextWorld.branches.at(-1)!.id};nextWorld=saveWriting(nextWorld,worldContext,id,{...(w.story?{content:w.story}:{}),messages:[]});repo.save(nextWorld)}
+  const next={...structuredClone(w),id,parentId:w.id,worldContext,conversation:[],suggestions:[],title:`${w.title} — branch`,updatedAt:new Date().toISOString()};setItems(all=>[next,...all]);select(next.id);
+ }catch(e){setError(e instanceof Error?e.message:'Branch creation failed')}}
+ async function run(job:Job){if(busy)return;if(!configured){setSettings(true);setError('Configure Gemini to use AI. Your notes and drafts remain editable.');return}setBusy(job.kind);setError('');setRetry(null);const abort=new AbortController();controller.current=abort;const timer=setTimeout(()=>abort.abort('timeout'),75000);try{const r=await fetch(`/api/${job.kind}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(job.body),signal:abort.signal});const data=await r.json();if(abort.signal.aborted)return;if(!r.ok)throw Error(data.error||'The request could not be completed.');if(job.kind==='research')patch({bible:data.bible,researchSource:'research',researchedAt:data.createdAt},job.id);else if(job.kind==='director'){const current=itemsRef.current.find(v=>v.id===job.id);if(current)patch({conversation:[...current.conversation,{id:crypto.randomUUID(),role:'director',text:data.reply}],preferences:data.preferences,suggestions:data.options},job.id)}else if(job.kind==='timeline')patch({plan:data.plan},job.id);else patch({story:data.story},job.id)}catch(e){if(abort.signal.aborted&&abort.signal.reason!=='timeout')return;setError(abort.signal.aborted?'The request timed out. Your work is saved; try again.':e instanceof Error?e.message:'Connection failed. Try again.');setRetry(job)}finally{clearTimeout(timer);controller.current=null;setBusy('')}}
+ function context(){flushWriting();let world; if(w?.worldContext){const data=new LocalProjectRepository(localStorage).load(w.worldContext.projectId);if(!data)throw Error('World memory is missing. Restore a backup before using AI.');world=retrieveContext(data,w.worldContext,w.preferences.targetChange+' '+input)}return w?{title:w.title,bible:w.bible,preferences:w.preferences,conversation:w.conversation,plan:w.plan,story:w.story,world}:{}}
+ function passageRequestContext(){const {title,bible,preferences,world}=context() as {title:string;bible:Bible|null;preferences:Preferences;world?:unknown};return {title,bible,preferences,world}}
+ function replacePassage(text:string,expected:string){
+  const current=itemsRef.current.find(v=>v.id===active);if(!current?.story)throw Error('Draft unavailable.');
+  if(current.story.scene!==expected)throw Error('The draft changed. Select the passage again to preserve your newer writing.');
+  flushWriting();
+  if(current.worldContext){const repo=new LocalProjectRepository(localStorage),data=repo.load(current.worldContext.projectId);if(!data)throw Error('World memory unavailable. Export a backup before revising.');repo.save(saveWriting(data,current.worldContext,current.id,{content:current.story},true))}
+  patch({story:{...current.story,scene:text}},current.id);
+ }
+ function generate(kind:string){if(!w)return;if(!w.bible&&!w.worldContext){setError('Add your universe notes or research the story first.');setTab('Universe');return}if(!w.preferences.targetChange.trim()){setError('Describe your intended change in Direction first.');return}try{run({kind,body:context(),id:w.id})}catch(e){setError(e instanceof Error?e.message:'World context unavailable')}}
+ function send(text=input){if(!w||busy||!text.trim())return;if(!w.bible&&!w.worldContext){setError('Add your universe notes or research the story first.');setTab('Universe');return}if(!configured){setSettings(true);return}let branchContext;try{branchContext=context()}catch(e){setError(e instanceof Error?e.message:'World context unavailable');return}const conversation=[...w.conversation,{id:crypto.randomUUID(),role:'user' as const,text:text.trim()}];patch({conversation,suggestions:[]});setInput('');run({kind:'director',body:{...branchContext,conversation},id:w.id})}
+ async function importFile(f:File){try{
+   if(f.size>100*1024*1024)throw Error('Backup exceeds 100 MiB.');
+   const raw=JSON.parse(await f.text()), packaged=raw?.format==='story-world-workspaces'&&raw.version===1;
+   const list:unknown=packaged?raw.workspaces:Array.isArray(raw)?raw:[raw];
+   if(!Array.isArray(list)||!list.length||!list.every(isWorkspace))throw Error('Invalid writing workspace backup.');
+   if(new Set(list.map(v=>v.id)).size!==list.length)throw Error('Duplicate workspace IDs.');
+   if(packaged&&!Array.isArray(raw.projects))throw Error('Missing world archives.');
+   const projects:ProjectArchive[]=packaged?raw.projects.map((p:unknown)=>restoreProject(JSON.stringify(p))):[];
+   const ids=new Map(list.map(v=>[v.id,crypto.randomUUID()]));
+   const restored=new Map<string,ReturnType<typeof reidentifyProject>>();
+   for(const project of projects){if(restored.has(project.project.id))throw Error('Duplicate universe IDs.');restored.set(project.project.id,reidentifyProject(project,ids))}
+   for(const workspace of list)if(workspace.worldContext){const project=restored.get(workspace.worldContext.projectId);if(!project||!project.branches.has(workspace.worldContext.branchId))throw Error('This backup references missing world memory. Import a combined workspace/world backup.')}
+   const imported=list.map(v=>({...v,id:ids.get(v.id)!,parentId:v.parentId?(ids.get(v.parentId)||null):null,worldContext:v.worldContext?{...v.worldContext,projectId:restored.get(v.worldContext.projectId)!.archive.project.id,branchId:restored.get(v.worldContext.projectId)!.branches.get(v.worldContext.branchId)!}:undefined}));
+   const repo=new LocalProjectRepository(localStorage);for(const project of restored.values())repo.save(project.archive);
+   setStorageSafe(true);setItems(all=>[...imported,...all]);select(imported[0].id);
+ }catch(e){setError(e instanceof Error?e.message:'This file is not a valid workspace backup.')}}
+ function exportBackup(){flushWriting();try{const repo=new LocalProjectRepository(localStorage);const projects=[...new Set(items.flatMap(w=>w.worldContext?[w.worldContext.projectId]:[]))].map(id=>{const p=repo.load(id);if(!p)throw Error('World memory is missing. Export cancelled to avoid an incomplete backup.');return p});download('restory-backup.json',JSON.stringify({format:'story-world-workspaces',version:1,workspaces:items,projects},null,2),'application/json')}catch(e){setError(e instanceof Error?e.message:'Backup failed')}}
+ const emptyPlan:Plan={premise:'',divergencePoint:'',alternateTimeline:[],consequences:[],keep:[],change:[]};
+ const emptyStory:Story={title:w?.title||'',premise:'',divergencePoint:'',changesFromCanon:[],alternateTimeline:[],storySummary:'',scene:'',storyboard:[]};
+ return <div className={`shell ${focusWriting&&tab==='Draft'?'writing-focus':''}`}><aside className="sidebar"><a className="brand" href={`${BASE_PATH}/`}>Re<span>:</span>Story</a><button className="primary" onClick={()=>{flushWriting();controller.current?.abort();setCreating(true)}}><Plus size={16}/> New story</button><input className="search" aria-label="Search workspaces" placeholder="Find a workspace" value={search} onChange={e=>setSearch(e.target.value)}/><div className="workspace-list">{items.filter(v=>v.title.toLowerCase().includes(search.toLowerCase())).map(v=><button className={v.id===active&&!creating?'selected':''} key={v.id} onClick={()=>select(v.id)}><span>{v.parentId?<GitBranch size={16}/>:<BookOpen size={16}/>}</span><div><strong>{v.title}</strong><small>{v.mediaType} · {v.story?'Draft':'Workspace'}</small></div></button>)}{ready&&!items.length&&<p className="muted">Your workspaces will appear here.</p>}</div><div className="sidebar-bottom"><small>{saved}</small><button onClick={exportBackup}><Download size={15}/> Export backup</button><button onClick={()=>file.current?.click()}><Plus size={15}/> Import backup</button><button onClick={()=>setSettings(true)}><Settings size={15}/> Settings <i className={configured?'connected':''}/></button><input ref={file} type="file" accept=".json,application/json" hidden onChange={e=>{if(e.target.files?.[0])importFile(e.target.files[0]);e.target.value=''}}/></div></aside><main>
+ <header><span className="muted">{focusWriting&&tab==='Draft'?w?.title:STATIC_HOST?'Local writing · GitHub Pages':'Writing workspace'}</span><div>{busy&&<><span role="status">{busy==='rewrite'?'Writing':busy==='research'?'Researching':busy==='timeline'?'Building timeline':'Thinking'}…</span><button onClick={()=>controller.current?.abort()}>Cancel</button></>}{focusWriting&&tab==='Draft'&&<button onClick={()=>setFocusWriting(false)}>Exit focus · Esc</button>}{w&&!creating&&<><button onClick={branch} disabled={!!busy}><GitBranch size={15}/> Branch</button><button onClick={()=>download(`${w.title.replace(/[^a-z0-9_-]/gi,'_')}.md`,w.story?`# ${w.story.title}\n\n${w.story.premise}\n\n${w.story.scene}`:w.notes)}><Download size={15}/> Export text</button></>}</div></header>
+ {error&&<div className="notice" role="alert"><span>{error}</span>{retry&&<button disabled={!!busy} onClick={()=>run(retry)}>Retry</button>}<button aria-label="Dismiss error" onClick={()=>setError('')}><X size={16}/></button></div>}
+ {creating||!w?<StoryStart key={creating?'new':'first'} ready={ready} configured={configured} open={openInput}/>:<>
+ <div className="workspace-heading"><input className="title-input" aria-label="Workspace title" value={w.title} onChange={e=>patch({title:e.target.value})} maxLength={200}/><span>{w.parentId?'Branch workspace':'Story workspace'}</span></div><nav className="tabs">{(['Universe','Director','Timeline','Draft'] as Tab[]).map((t,i)=>{const Icon=[BookOpen,MessageSquare,ListTree,FileText][i];return <button className={tab===t?'active':''} key={t} onClick={()=>{flushWriting();setTab(t)}}><Icon size={16}/>{t}</button>})}</nav>
+ <div className="editor-layout"><fieldset className="editor" disabled={!!busy}>
+ {tab==='Universe'&&<><WorldPanel key={w.id} workspace={w} bind={bindWorld}/><div className="section-head"><div><h2>Story context</h2><p>Use your own source notes or research an existing story.</p></div><button disabled={!!busy} onClick={()=>run({kind:'research',id:w.id,body:{title:w.title,mediaType:w.mediaType,edition:w.edition,notes:w.notes,refresh:true}})}>Research</button></div><div className="two-fields"><label>Story type<input value={w.mediaType} onChange={e=>patch({mediaType:e.target.value})} maxLength={80}/></label><label>Author / edition / version<input value={w.edition} onChange={e=>patch({edition:e.target.value})} placeholder="Disambiguate the source" maxLength={300}/></label></div><label>Source notes<textarea aria-label="Source notes" rows={8} value={w.notes} onChange={e=>patch({notes:e.target.value})} placeholder="Add the characters, world rules, and events the story must respect." maxLength={100000}/></label><button disabled={!w.notes.trim()||!!busy} onClick={()=>patch({bible:bibleFromNotes(w.title,w.mediaType,w.notes),researchSource:'notes',researchedAt:null})}>Use my notes as context</button>{w.bible&&<div className="context-details"><div className="section-head"><h2>Universe reference</h2><small>{w.researchSource==='notes'?'Your source notes':'Researched context'}</small></div><label>Summary<textarea aria-label="Summary" rows={5} value={w.bible.summary} onChange={e=>bible({summary:e.target.value})}/></label><label>World rules · one per line<textarea rows={5} value={w.bible.worldRules.join('\n')} onChange={e=>bible({worldRules:e.target.value.split('\n')})}/></label><label>Canonical timeline · one event per line<textarea rows={5} value={w.bible.timeline.join('\n')} onChange={e=>bible({timeline:e.target.value.split('\n')})}/></label><label>Original ending<textarea value={w.bible.ending} onChange={e=>bible({ending:e.target.value})}/></label>{w.bible.characters.map((c,i)=><details key={i}><summary>{c.name}</summary><label>Personality<textarea value={c.personality} onChange={e=>bible({characters:w.bible!.characters.map((v,j)=>j===i?{...v,personality:e.target.value}:v)})}/></label><p>{c.goals.join(' · ')}</p><small>{c.status}</small></details>)}{w.bible.uncertainties.length>0&&<div className="uncertainties"><h3>Unresolved context</h3>{w.bible.uncertainties.map((v,i)=><p key={i}>{v}</p>)}</div>}{w.bible.sources.length>0&&<div><h3>Research sources</h3>{w.bible.sources.map((s,i)=><a className="source" href={s.url} target="_blank" rel="noreferrer" key={i}>{s.title}</a>)}</div>}</div>}</>}
+ {tab==='Director'&&<><DirectorProposals key={w.id} workspace={w} sourceTitle="Director conversation" sourceText={w.conversation.map(m=>`${m.role}: ${m.text}`).join('\n\n')}/><div className="section-head"><div><h2>Story Director</h2><p>Discuss your change and its consequences.</p></div></div><div className="messages">{!w.conversation.length&&<p className="empty">Describe what you want to change. The Director uses your universe reference and direction settings.</p>}{w.conversation.map(m=><article className={`message ${m.role}`} key={m.id}><small>{m.role==='user'?'You':'Director'}</small><p>{m.text}</p></article>)}</div><div className="suggestions">{w.suggestions.map((s,i)=><button key={i} disabled={!!busy} onClick={()=>send(s)}>{s}</button>)}</div><form className="composer" onSubmit={e=>{e.preventDefault();send()}}><textarea aria-label="Message Director" rows={3} value={input} onChange={e=>setInput(e.target.value)} placeholder="Describe the choice you want to explore" maxLength={12000}/><button className="primary" disabled={!!busy||!input.trim()}><Send size={16}/> Send</button></form></>}
+ {tab==='Timeline'&&<><div className="section-head"><div><h2>Alternate timeline</h2><p>Plan the divergence before writing.</p></div><button className="primary" disabled={!!busy} onClick={()=>generate('timeline')}>Build timeline</button></div>{!w.plan?<div className="empty"><p>Build a timeline from your direction, or plan it yourself.</p><button onClick={()=>patch({plan:emptyPlan})}>Start a blank timeline</button></div>:<><label>Premise<textarea value={w.plan.premise} onChange={e=>plan({premise:e.target.value})}/></label><label>Divergence point<textarea value={w.plan.divergencePoint} onChange={e=>plan({divergencePoint:e.target.value})}/></label><div className="timeline">{w.plan.alternateTimeline.map((event,i)=><label key={i}><span>{String(i+1).padStart(2,'0')}</span><textarea aria-label={`Event ${i+1}`} value={event} onChange={e=>plan({alternateTimeline:w.plan!.alternateTimeline.map((v,j)=>i===j?e.target.value:v)})}/><button aria-label={`Remove event ${i+1}`} onClick={()=>plan({alternateTimeline:w.plan!.alternateTimeline.filter((_,j)=>j!==i)})}><X size={16}/></button></label>)}</div><button onClick={()=>plan({alternateTimeline:[...w.plan!.alternateTimeline,'']})}><Plus size={16}/> Add event</button><label>Consequences · one per line<textarea rows={5} value={w.plan.consequences.join('\n')} onChange={e=>plan({consequences:e.target.value.split('\n')})}/></label></>}</>}
+ {tab==='Draft'&&<>{!w.story?<section className="draft-start"><span className="eyebrow">MANUSCRIPT</span><h2>A blank page, ready for your story.</h2><p>Start writing now, or use your context and direction to generate a draft.</p><button className="primary" onClick={()=>patch({story:emptyStory})}>Start a blank draft</button><button disabled={!!busy} onClick={()=>generate('rewrite')}>Write with Director</button></section>:<DraftEditor key={w.id} workspaceId={w.id} configured={configured} context={passageRequestContext} settings={()=>setSettings(true)} replace={replacePassage} story={w.story} change={story} focus={focusWriting} toggleFocus={()=>setFocusWriting(!focusWriting)} saved={saved} busy={!!busy} generate={()=>generate('rewrite')}/>}
+ <details className="draft-tools"><summary>Draft tools · premise, revisions &amp; world review</summary>{w.story&&<label>Premise<textarea value={w.story.premise} onChange={e=>story({premise:e.target.value})}/></label>}<WritingRevisions workspace={w} onBefore={flushWriting} onRestore={content=>patch({story:content})}/><DirectorProposals key={w.id} workspace={w} sourceTitle="Draft" sourceText={w.story?.scene || ''}/>{!!w.story?.storyboard.length&&<details><summary>Storyboard notes</summary>{w.story.storyboard.map((shot,i)=><article className="shot" key={i}><strong>{shot.shot}</strong><p>{shot.action}</p><p>{shot.dialogue}</p></article>)}</details>}</details></>}
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Panel } from '@/components/ui/panel';
-
-const pillars = [
-  {
-    icon: Sparkles,
-    title: 'Conversation-led design',
-    body: 'Build settings in natural language while CanonKeep keeps the assistant grounded in current lore and unresolved questions.',
-  },
-  {
-    icon: Database,
-    title: 'Structured canon underneath',
-    body: 'Every approved fact becomes an entity, rule, event, secret, session note, or relationship tied back to its source.',
-  },
-  {
-    icon: GitBranchPlus,
-    title: 'Retcons with receipts',
-    body: 'Contradictions are flagged before they poison continuity. Approved changes land in a changelog with provenance.',
-  },
-  {
-    icon: ShieldEllipsis,
-    title: 'Visibility-aware lore',
-    body: 'Public canon, shared campaign notes, GM-only secrets, and private references all live in the same world model.',
-  },
-];
-
-export default function LandingPage() {
-  return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-14 px-6 py-12 lg:py-20">
-      <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <Badge>Production-minded MVP foundation</Badge>
-          <h1 className="mt-6 max-w-4xl font-serif text-6xl leading-none tracking-tight md:text-7xl">
-            Build worlds by talking. Keep them consistent by design.
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--muted)]">
-            CanonKeep is a conversational worldbuilding and campaign platform that turns chat into structured, retrieval-backed canon with visibility controls, contradiction checks, and change tracking.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link href="/worlds">
-              <Button>
-                Enter the dashboard <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/auth">
-              <Button variant="secondary">Set up auth</Button>
-            </Link>
-          </div>
-        </div>
-        <Panel className="overflow-hidden p-6">
-          <div className="rounded-[24px] border border-[var(--border)] bg-[#2c1d13] p-5 text-[#f9ebd9]">
-            <p className="text-xs uppercase tracking-[0.2em] text-[#d9b48f]">Creator mode</p>
-            <p className="mt-4 text-lg leading-8">
-              If memory is used as fuel, who decides which recollections are too dangerous to preserve? What material cost keeps that power structure stable?
-            </p>
-          </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="rounded-[24px] border border-[var(--border)] bg-white/70 p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Extracted candidates</p>
-              <p className="mt-3 font-semibold">Faction: The Kiln Synod</p>
-              <p className="mt-2 text-sm text-[var(--muted)]">Controls legal memory-burning infrastructure and narrative legitimacy.</p>
-            </div>
-            <div className="rounded-[24px] border border-[var(--border)] bg-white/70 p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Conflict alert</p>
-              <p className="mt-3 font-semibold">Rule overlap detected</p>
-              <p className="mt-2 text-sm text-[var(--muted)]">Candidate rule duplicates an existing furnace law but adds a new civic consequence.</p>
-            </div>
-          </div>
-        </Panel>
-      </section>
-
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {pillars.map((pillar) => {
-          const Icon = pillar.icon;
-          return (
-            <Panel key={pillar.title} className="p-5">
-              <Icon className="h-5 w-5 text-[var(--accent-strong)]" />
-              <h2 className="mt-4 font-serif text-2xl">{pillar.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{pillar.body}</p>
-            </Panel>
-          );
-        })}
-      </section>
-    </main>
-  );
+ </fieldset><fieldset className="direction" disabled={!!busy}><h2>Direction</h2><label>What changes?<textarea aria-label="What changes?" rows={4} value={w.preferences.targetChange} onChange={e=>prefs({targetChange:e.target.value})} placeholder="Your intended change" maxLength={10000}/></label><label>Starting point<input value={w.preferences.startingPoint} onChange={e=>prefs({startingPoint:e.target.value})}/></label><label>Tone<input value={w.preferences.desiredTone} onChange={e=>prefs({desiredTone:e.target.value})}/></label><label>Format<select value={w.preferences.outputMedium} onChange={e=>prefs({outputMedium:e.target.value as Preferences['outputMedium']})}>{['Prose','Outline','Storyboard'].map(v=><option key={v}>{v}</option>)}</select></label><label>Length<select value={w.preferences.outputLength} onChange={e=>prefs({outputLength:e.target.value as Preferences['outputLength']})}>{['Short scene','Full chapter','Story outline'].map(v=><option key={v}>{v}</option>)}</select></label><details><summary>Canon controls</summary><p className="muted">100% preserves each foundation. For the original ending, 100% allows a full rewrite.</p>{Object.entries(w.preferences.controls).map(([key,value])=><label className="range" key={key}><span>{key}<strong>{value}%</strong></span><input aria-label={key} type="range" min="0" max="100" value={value} onChange={e=>prefs({controls:{...w.preferences.controls,[key]:+e.target.value}})}/></label>)}{Object.entries(w.preferences.toggles).map(([key,value])=><label className="toggle" key={key}><input type="checkbox" checked={value} onChange={e=>prefs({toggles:{...w.preferences.toggles,[key]:e.target.checked}})}/>{key}</label>)}</details><small className="muted">Changes save automatically. AI uses this direction and your universe reference.</small></fieldset></div></>}
+ </main>{settings&&<div className="overlay" onClick={()=>setSettings(false)}><section className="settings" role="dialog" aria-modal="true" aria-label="Settings" onClick={e=>e.stopPropagation()}><button className="close" aria-label="Close settings" onClick={()=>setSettings(false)}><X size={20}/></button><h2>{STATIC_HOST?'GitHub Pages edition':'AI connection'}</h2>{STATIC_HOST?<><p>Writing, text imports, manual revisions, timelines, branches and backups work in this browser.</p><p>AI research, Director replies, generation and fact extraction require a separate server and are unavailable on this site.</p><p>For AI features, run the full app with a server-side Gemini key. Keep your API key out of this public site.</p></>:<><p>{configured?'Gemini is configured on the server.':'Gemini needs a server API key.'}</p><p>In the project folder, copy <code>.env.example</code> to <code>.env.local</code>, set <code>GEMINI_API_KEY</code>, and restart the app.</p><p>Your key stays on the server. Notes, timelines, and drafts can be edited without a connection.</p><button onClick={status}>Check configuration</button></>}<hr/><h3>Workspace storage</h3><p>Workspaces save in this browser. Export a backup before clearing browser data or changing devices.</p></section></div>}</div>
 }

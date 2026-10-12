@@ -1,303 +1,82 @@
-# CanonKeep
+# Re:Story
 
-CanonKeep is a production-minded MVP for persistent worldbuilding and campaign canon management.
+A focused story writing tool. Keep universe notes, discuss alternate choices with a Director, edit timelines, and write drafts. Workspaces save automatically in the current browser. Branches preserve their parent context. Export and import JSON backups, or export drafts as Markdown.
 
-The product principle is simple:
+## Run locally
 
-- conversation first
-- structure underneath
-- retrieval before response
-- canon changes with provenance
+Requires Node.js 20 or newer.
 
-Users talk to an AI partner about a world. CanonKeep retrieves relevant stored canon, answers in context, extracts candidate facts, lets the user review them, and applies approved updates into structured tables with visibility and retcon tracking.
-
-## Current MVP slice
-
-This repo now includes:
-
-- Next.js 16 + TypeScript + Tailwind 4 app shell
-- email/password auth wiring for Supabase
-- world dashboard and world creation flow
-- world workspace with left navigation, central chat, right canon panel
-- chat modes: creator, archivist, consistency checker, GM assistant
-- retrieval-backed chat orchestration scaffold using the OpenAI Responses API
-- canon candidate extraction pipeline with structured candidate objects
-- contradiction detection foundation
-- campaign, session, timeline, change-log, and document screens
-- Supabase SQL schema, RLS policies, storage bucket policy, and demo seed data
-- demo-mode fallback so the app is browseable before Supabase is configured
-
-## Repo structure
-
-```text
-app/
-  (app)/
-    layout.tsx
-    worlds/
-      page.tsx
-      new/page.tsx
-      [worldId]/
-        layout.tsx
-        page.tsx
-        chat/page.tsx
-        entities/page.tsx
-        timeline/page.tsx
-        campaigns/page.tsx
-        campaigns/[campaignId]/page.tsx
-        campaigns/[campaignId]/sessions/[sessionId]/page.tsx
-        changes/page.tsx
-        documents/page.tsx
-  api/
-    chat/route.ts
-    canon-candidates/route.ts
-    documents/route.ts
-  auth/page.tsx
-  globals.css
-  layout.tsx
-  page.tsx
-components/
-  chat/
-    chat-workspace.tsx
-  layout/
-    logo.tsx
-    site-header.tsx
-    world-sidebar.tsx
-  ui/
-    badge.tsx
-    button.tsx
-    input.tsx
-    panel.tsx
-    textarea.tsx
-  worlds/
-    world-card.tsx
-    world-form.tsx
-lib/
-  ai/
-    orchestrator.ts
-    prompts.ts
-    schemas.ts
-  data/
-    candidate-apply.ts
-    conflicts.ts
-    demo.ts
-    mappers.ts
-    repository.ts
-  forms/
-    auth-actions.ts
-    world-actions.ts
-  supabase/
-    client.ts
-    server.ts
-  auth.ts
-  constants.ts
-  env.ts
-  types.ts
-  utils.ts
-supabase/
-  schema.sql
-  seed.sql
-proxy.ts
-```
-
-## Architecture
-
-### 1. App layer
-
-- `app/page.tsx`: landing page and first-pass brand
-- `app/auth/page.tsx`: email/password auth UI
-- `app/(app)/worlds/*`: dashboard and world workspace routes
-
-### 2. Data layer
-
-- `lib/data/repository.ts`: main read/write abstraction for worlds, chat, retrieval context, and candidates
-- `lib/data/demo.ts`: built-in demo world so the UI works without external services
-- `lib/data/conflicts.ts`: basic contradiction detection heuristics
-- `lib/data/candidate-apply.ts`: approved candidate application into canon tables
-
-### 3. AI layer
-
-- `lib/ai/prompts.ts`: mode-specific system guidance
-- `lib/ai/orchestrator.ts`: retrieval-grounded response generation + extraction pipeline
-- `lib/ai/schemas.ts`: JSON schema for extraction output
-
-### 4. Persistence layer
-
-- Supabase Postgres tables for structured canon
-- Supabase auth for email/password accounts
-- Supabase storage bucket for private uploaded documents
-- RLS scoped to world ownership for the MVP
-
-## Database schema
-
-Defined in [supabase/schema.sql](/Users/richc/Desktop/NueroSphere/supabase/schema.sql).
-
-### Core tables
-
-- `users`
-- `worlds`
-- `campaigns`
-- `entities`
-- `relationships`
-- `rules`
-- `events`
-- `secrets`
-- `sessions`
-- `changelog`
-- `source_documents`
-- `chat_threads`
-- `chat_messages`
-- `canon_candidates`
-
-### Key design choices
-
-- `worlds` is the ownership boundary for nearly every record in the MVP.
-- `visibility` exists across canon-bearing tables to support `public`, `gm_only`, `private`, and `shared` access scopes.
-- `canon_candidates` stores AI-suggested structured updates before approval.
-- `chat_messages` remain the source provenance layer for extraction and changelog references.
-- `source_documents.extracted_text` enables immediate retrieval without requiring a separate vector store.
-- the schema is compatible with later additions like memberships, branching timelines, embeddings, or OpenAI file-search references.
-
-## Retrieval-first chat flow
-
-1. User sends a message in a world thread.
-2. CanonKeep retrieves:
-   - world metadata
-   - visible entities
-   - rules
-   - recent events
-   - recent sessions
-   - visible secrets
-   - source-document extracts
-3. The AI response is generated from retrieved canon plus recent thread context.
-4. A second extraction pass proposes structured canon candidates.
-5. Candidate conflicts are detected against current canon.
-6. The user can approve or reject candidates from the right-hand panel.
-
-## Chat modes
-
-Prompt packs live in [lib/ai/prompts.ts](/Users/richc/Desktop/NueroSphere/lib/ai/prompts.ts).
-
-- `creator`: expands the setting and asks sharp next questions
-- `archivist`: compresses and organizes canon
-- `consistency_checker`: finds contradictions and ambiguity
-- `gm_assistant`: supports campaigns, recaps, and hidden lore boundaries
-
-## Local setup
-
-### Prerequisites
-
-- Node.js 20+
-- npm
-- Optional but recommended: Supabase project
-- Optional but recommended: OpenAI API key
-
-### Install
-
-```bash
+```sh
 npm install
-```
-
-### Configure environment
-
-```bash
 cp .env.example .env.local
-```
-
-Set these values in `.env.local`:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-5
-OPENAI_EXTRACTION_MODEL=gpt-5
-```
-
-### Apply database setup
-
-Run the contents of [supabase/schema.sql](/Users/richc/Desktop/NueroSphere/supabase/schema.sql) in the Supabase SQL editor, then run [supabase/seed.sql](/Users/richc/Desktop/NueroSphere/supabase/seed.sql).
-
-### Start development
-
-```bash
+# Set GEMINI_API_KEY in .env.local for AI actions.
 npm run dev
 ```
 
-### Validate
+Open http://127.0.0.1:3000. For production, run `npm run build` then `npm start`.
 
-```bash
-npm run typecheck
-npm run lint
-npm run build
-```
+Gemini powers research, Director conversations, timeline planning, and draft generation. The API key is read only on the server. Research uses Google Search grounding and keeps a private seven-day cache in `.cache`. There are no simulated replies, media players, or generated output substitutes. Provider outages and invalid responses return actionable errors; retry preserves your previous work.
 
-## Demo mode
+Local notes, timeline editing, draft writing, branching, and backups work without an API key. Browser data is local to that browser and device: export backups before clearing it. AI requests transmit the current story context to Gemini. Verify researched facts against the listed sources.
 
-If Supabase environment variables are missing, CanonKeep runs in demo mode.
+`npm run typecheck` checks TypeScript. `npm run build` verifies production compilation.
 
-Demo mode behavior:
+Run `node scripts/check-backend.cjs` for request validation and missing-key checks. If Documents files are offloaded by macOS, `npm run local` builds and runs from a temporary local mirror.
 
-- the dashboard loads a built-in sample world
-- the workspace is fully browseable
-- chat responses and candidate extraction fall back to deterministic local behavior
-- document upload redirects back without persistence
+## Vercel hosting
 
-This is intentional so the app can be explored immediately before infrastructure is configured.
+Deploy this Next.js application with `npx vercel --prod`. Set `GEMINI_API_KEY` as a sensitive Production environment variable in the Vercel project settings, then redeploy. Never use a `NEXT_PUBLIC_` prefix for this key. `GEMINI_MODEL` is optional.
 
-## AI integration notes
+AI route handlers allow 90 seconds. The research cache uses temporary storage on Vercel and is best effort; it may disappear between function instances. Browser workspaces remain local to the current browser and hostname. Export a localhost backup and import it on the hosted site to move existing work.
 
-The OpenAI integration is implemented in [lib/ai/orchestrator.ts](/Users/richc/Desktop/NueroSphere/lib/ai/orchestrator.ts).
+GitHub Pages hosts the static writing edition. Its server-side AI routes require Vercel or a separate Node server.
 
-Current behavior:
+## GitHub Pages
 
-- server-side Responses API calls generate grounded assistant replies
-- a separate structured extraction call produces canon candidates
-- if `OPENAI_API_KEY` is absent, the app uses a deterministic fallback
+Published app: https://rchau8502.github.io/Re/
 
-Current limitation:
+`npm run build:pages` creates `out/` with the `/Re` base path. It builds an isolated copy, excludes API routes and credentials, and leaves the full server app available. The hosted app supports writing, text imports, manual passage revisions, timelines, world memory, branches, and browser backups. It reports that AI is unavailable; no API key is included in the public site.
 
-- the MVP stores extracted text for uploaded files and uses relational retrieval first; it does not yet wire source documents into OpenAI file search or vector retrieval
-- contradiction handling is heuristic rather than semantic
-- candidate approval inserts canon records, but retcon logging on every approval path is not fully automated yet
+The repository publishes prebuilt files from `main` → `/docs`. To update the site, run `npm ci`, `npm run build:pages`, replace `docs/` with the contents of `out/` (including `.nojekyll`), commit, and push. GitHub Pages then publishes that version. For another repository name, set `RESTORY_BASE_PATH=/YourRepo` when building.
 
-## Implementation plan
+GitHub source is public; your manuscripts and worlds stay in browser storage unless you export or transmit them yourself. Data from localhost does not automatically appear on the hosted origin: export a JSON backup locally and import it on the site.
 
-### Phase 1
+## Unified world memory (first integration milestone)
 
-- scaffold project
-- auth wiring
-- schema + seed
-- world dashboard
-- world workspace shell
-- basic chat UI
-- basic response loop
+In a workspace's Universe tab, choose **Create world memory**. Add entities, submit sourced facts, and approve them explicitly for Canon or the current alternate branch. Create branches at a numeric event order; descendants inherit parent facts at their fork and store only changes. Use the timeline point to inspect earlier states, add ordered events, and compare resolved facts with canon. The header Branch action creates an associated writing workspace and alternate world state when world memory is connected.
 
-### Phase 2
+Director, timeline and writing requests include a bounded, branch-resolved selection of public/shared facts. Approved branch facts take precedence over baseline reference text. Private and GM-only material is excluded. AI responses still edit only conversation/plans/drafts; they cannot approve canon. Director and Draft include Suggest world changes: AI suggestions are validated and staged for review, with entity IDs, evidence, confidence and temporal scope. Edit, select, accept or reject proposals; baseline changes require the explicitly labeled canon approval action.
 
-- improve extraction quality
-- richer candidate review and edit UI
-- stronger retrieval ranking
-- relationship and rule/event approval flows
+World memory saves in separate browser records. Export backup includes writing workspaces and their referenced worlds. Legacy workspace-only backups remain importable; standalone world backups restore as a new universe. No existing SQLite database or Supabase table is migrated. Keep CanonKeep's desktop application for its existing images/maps, guest reveals, GM notes, independent playthroughs and persistent undo/redo until those adapters are integrated.
 
-### Phase 3
+Architecture and migration details: [MERGE_ANALYSIS.md](MERGE_ANALYSIS.md). Current completion and limitations: [MERGE_PROGRESS.md](MERGE_PROGRESS.md). `npm run test:world` checks inheritance, proposals, temporal state, continuity warnings, backup validation and retrieval. This is an incremental integration, not the completed production merger.
 
-- complete changelog automation
-- deepen contradiction resolution options
-- campaign/session create-edit flows
-- branch-aware continuity controls
+CanonKeep world exports (v1/v2) can now be imported from World memory. Imported entry text is staged for review and stays private, including GM notes. The original package is retained for export back to CanonKeep; its maps/images are preserved as opaque archive material, not rendered. Full CanonKeep library backups and playthroughs still require the original desktop application.
 
-### Phase 4
+A separate Node 22.13+ SQLite repository adapter is implemented and tested, but is not yet selectable from the web UI. It refuses to open an existing CanonKeep database. Browser persistence remains the active web storage mode.
 
-- production document ingestion improvements
-- chunking and embeddings or file-search integration
-- memberships and shared roles
-- polish and analytics
+Connected structured worlds can now drive Director, timeline and writing without a separate legacy universe reference. Fact extraction supports conversation or draft passages up to 30,000 characters; quotations must match the supplied passage. Restored archives remap all internal IDs, including ancestry, sources, events and proposal facts.
 
-## Suggested next build targets
+Connected drafts and Director conversations now belong to their world branch. Switching branches opens that branch’s writing workspace; header Branch copies the current draft and starts a separate conversation. Draft revisions retain up to 50 checkpoints, approximately every 30 seconds of editing, with manual checkpoints and restore. Restore preserves the current draft as a checkpoint. These records travel with combined or standalone world archives; older archives without writing collections remain supported. If world storage fails, the browser workspace retains newer text with a pending-save marker. Export a combined backup to protect that recovery copy.
 
-1. add candidate editing before approval
-2. write changelog entries automatically on every approved mutation
-3. move retrieval from simple relational slicing to ranked search over canon + document chunks
-4. add create/edit flows for campaigns and sessions
-5. harden auth and storage flows against anonymous access edge cases
+## Writing experience
+
+Draft opens directly onto the manuscript. Focus writing hides navigation and direction controls; Escape returns to the workspace. Text size, a plain-text reading view, multilingual word counts and estimated reading time are available in the toolbar. Find locates literal passages without changing the text. Premise, revision checkpoints, storyboard notes and world review remain under Draft tools. View controls are session-only.
+
+Writing edits update immediately. World archive saves coalesce after 500 ms of inactivity with a 2-second deadline during continuous typing. Branch/workspace/tab changes, AI context reads, backup export, revision actions, page exit and hiding the browser flush pending world writes. The browser recovery mirror remains, and save failures retain newer text and a pending marker. Page-exit handlers do not guarantee recovery after a forced process kill. `npm run test:writing` exercises queue timing, failed-save retry, scope isolation and multilingual search/count behavior.
+
+Select text in the manuscript and choose **Revise selection** to compare the original with an editable replacement. Manual revisions work without AI. With Gemini configured, describe the change and request a suggestion; only Apply replacement changes the draft. Requests send the selected passage (up to 12,000 characters), up to 2,000 characters on each side, and the existing universe/direction context, rather than the full manuscript. Changes to the draft invalidate an open selection. Connected drafts save a checkpoint before replacement; Undo replacement remains available until the draft changes or the editor is closed. Review panels and suggestions are temporary and do not change canon. `npm run test:passage` checks scoped replacement, stale-text protection, checkpoint preservation and endpoint validation with an offline provider stub.
+
+## Demonstrate with your own input
+
+Run `npm run dev` and open http://127.0.0.1:3000. The start screen accepts a blank page, pasted text in any language, or a UTF-8 `.txt` / `.md` file (up to 400 KB and 100,000 characters). Choose Manuscript to edit the exact input directly, or Context to use notes as a universe reference. A title and intended change are optional. PDF, Word, image, audio, and arbitrary binary imports are not supported. JSON backups use the separate Import backup action.
+
+A useful demonstration without an API key:
+
+1. Paste a new passage, choose Manuscript, and open the workspace.
+2. Edit it, use Read / Focus writing, or select text and review a manual replacement.
+3. Create a Branch, change the branch manuscript, and switch back to show the original is preserved.
+4. Open Timeline, start a blank timeline, and add your own events.
+5. Reload to show local persistence, then export text or a JSON backup.
+
+The connection indicator reports server configuration, not successful provider execution. Gemini research, Director responses, timeline generation, and AI passage suggestions require a valid server key and have not been live-qualified by the local demonstration.
