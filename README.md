@@ -29,17 +29,18 @@ Deploy this Next.js application with `npx vercel --prod`. Set `GEMINI_API_KEY` a
 
 AI route handlers allow 90 seconds. The research cache uses temporary storage on Vercel and is best effort; it may disappear between function instances. Browser workspaces remain local to the current browser and hostname. Export a localhost backup and import it on the hosted site to move existing work.
 
-GitHub Pages hosts the static writing edition. Its server-side AI routes require Vercel or a separate Node server.
+GitHub Pages hosts the advertising landing page. The full product and its server-side AI routes run on Vercel.
 
-## GitHub Pages
+## Hosting
 
-Published app: https://rchau8502.github.io/Re/
+- Product: https://re-story-eta.vercel.app/ — full Next.js app, including server AI routes.
+- Landing page: https://rchau8502.github.io/Re/ — an advertising page linking to the product, not a writing workspace.
 
-`npm run build:pages` creates `out/` with the `/Re` base path. It builds an isolated copy, excludes API routes and credentials, and leaves the full server app available. The hosted app supports writing, text imports, manual passage revisions, timelines, world memory, branches, and browser backups. It reports that AI is unavailable; no API key is included in the public site.
+`landing/` contains the advertising page and a screenshot of the actual app with manually entered example text. `npm run build:pages` copies it to `out/`. Replace `docs/` with those files (including `.nojekyll`), commit, and push. GitHub Pages publishes `main` → `/docs`.
 
-The repository publishes prebuilt files from `main` → `/docs`. To update the site, run `npm ci`, `npm run build:pages`, replace `docs/` with the contents of `out/` (including `.nojekyll`), commit, and push. GitHub Pages then publishes that version. For another repository name, set `RESTORY_BASE_PATH=/YourRepo` when building.
+Vercel uses `npm run build`. Add `GEMINI_API_KEY` as a secret Production environment variable and redeploy. Keys stay server-side and never belong in the public landing page. Gemini text generation is implemented; Veo video generation is not implemented yet.
 
-GitHub source is public; your manuscripts and worlds stay in browser storage unless you export or transmit them yourself. Data from localhost does not automatically appear on the hosted origin: export a JSON backup locally and import it on the site.
+Manuscripts and world memory save in the current browser. Export a JSON backup to move work between the product, localhost, and other devices. The landing page stores no story data.
 
 ## Unified world memory (first integration milestone)
 
