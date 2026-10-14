@@ -1,3 +1,4 @@
+import {isVideoSettings,type VideoSettings} from './modules/video/types';
 import type { WorldContext,NarrativeContent } from './modules/core/types';
 export type Message = { id: string; role: 'user' | 'director'; text: string };
 export type Bible = {
@@ -37,6 +38,7 @@ export type Plan = {
 };
 export type Story = NarrativeContent;
 export type Workspace = {
+  video?: VideoSettings;
   worldContext?: WorldContext;
   worldWritingPending?: boolean;
   id: string;
@@ -112,7 +114,7 @@ export function isStory(value: unknown): value is Story {
 export function isWorkspace(value: unknown): value is Workspace {
   if (!value || typeof value !== 'object') return false;
   const w = value as Workspace;
-  return (w.worldWritingPending === undefined || typeof w.worldWritingPending === 'boolean') && (w.worldContext === undefined || (w.worldContext !== null && typeof w.worldContext.projectId === 'string' && typeof w.worldContext.branchId === 'string' && (w.worldContext.atOrder === undefined || Number.isFinite(w.worldContext.atOrder))))
+  return (w.video===undefined || isVideoSettings(w.video)) && (w.worldWritingPending === undefined || typeof w.worldWritingPending === 'boolean') && (w.worldContext === undefined || (w.worldContext !== null && typeof w.worldContext.projectId === 'string' && typeof w.worldContext.branchId === 'string' && (w.worldContext.atOrder === undefined || Number.isFinite(w.worldContext.atOrder))))
     && ['id','title','mediaType','edition','notes','updatedAt'].every(k => typeof (w as unknown as Record<string,unknown>)[k] === 'string')
     && isPreferences(w.preferences) && (w.bible === null || isBible(w.bible))
     && (w.plan === null || isPlan(w.plan)) && (w.story === null || isStory(w.story))

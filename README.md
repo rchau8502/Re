@@ -15,7 +15,7 @@ npm run dev
 
 Open http://127.0.0.1:3000. For production, run `npm run build` then `npm start`.
 
-Gemini powers research, Director conversations, timeline planning, and draft generation. The API key is read only on the server. Research uses Google Search grounding and keeps a private seven-day cache in `.cache`. There are no simulated replies, media players, or generated output substitutes. Provider outages and invalid responses return actionable errors; retry preserves your previous work.
+Gemini powers research, Director conversations, timeline planning, and draft generation. The API key is read only on the server. Research uses Google Search grounding and keeps a private seven-day cache in `.cache`. There are no simulated replies or generated output substitutes. Finished provider videos have a player and download link. Provider outages and invalid responses return actionable errors; retry preserves your previous work.
 
 Local notes, timeline editing, draft writing, branching, and backups work without an API key. Browser data is local to that browser and device: export backups before clearing it. AI requests transmit the current story context to Gemini. Verify researched facts against the listed sources.
 
@@ -38,7 +38,7 @@ GitHub Pages hosts the advertising landing page. The full product and its server
 
 `landing/` contains the advertising page and a screenshot of the actual app with manually entered example text. `npm run build:pages` copies it to `out/`. Replace `docs/` with those files (including `.nojekyll`), commit, and push. GitHub Pages publishes `main` → `/docs`.
 
-Vercel uses `npm run build`. Add `GEMINI_API_KEY` as a secret Production environment variable and redeploy. Keys stay server-side and never belong in the public landing page. Gemini text generation is implemented; Veo video generation is not implemented yet.
+Vercel uses `npm run build`. Add `GEMINI_API_KEY` as a secret Production environment variable and redeploy. Keys stay server-side and never belong in the public landing page. Gemini text generation and protected Veo short-clip generation are implemented. A successful live video has not yet been verified.
 
 Manuscripts and world memory save in the current browser. Export a JSON backup to move work between the product, localhost, and other devices. The landing page stores no story data.
 
@@ -81,3 +81,15 @@ A useful demonstration without an API key:
 5. Reload to show local persistence, then export text or a JSON backup.
 
 The connection indicator reports server configuration, not successful provider execution. Gemini research, Director responses, timeline generation, and AI passage suggestions require a valid server key and have not been live-qualified by the local demonstration.
+
+## Video studio
+
+The Video tab accepts a custom shot prompt or a reviewed draft/storyboard excerpt. It submits one 4-, 6-, or 8-second 720p Veo Fast clip, with landscape or portrait framing. Each request needs explicit cost approval. Set both `GEMINI_API_KEY` and a long random `VIDEO_ACCESS_CODE` as sensitive server environment variables; the owner enters the access code to unlock an eight-hour session. Neither secret is included in the browser bundle. This shared owner gate is not a multi-user account or billing system.
+
+Job records and prompts save in the browser workspace and combined JSON backups. Status checks do not generate clips. Provider and network failures do not automatically resubmit. An unknown submission outcome blocks further requests until the owner acknowledges the risk of a prior charge. This is a browser guard, not durable server idempotency across tabs or devices. Download completed files within two days.
+
+`npm run test:video` uses an offline provider stub and checks request validation, authentication, cost gating, failure handling, ticket integrity and backup compatibility. It does not prove a successful provider generation or production media download.
+
+The October 13 alternate-ending test first failed request validation (`allow_adult` instead of the text-to-video value `allow_all`). The corrected request started a job, which ended with Google internal error 13 and no video. That response does not establish a billing or content rejection. No automatic retry was made.
+
+Google lists `veo-3.1-fast-generate-preview` for earliest possible retirement on October 22, 2026, recommending `gemini-omni-1.1-flash`. Migration to the different API is still pending. See [model deprecations](https://ai.google.dev/gemini-api/docs/deprecations) and [Veo settings](https://ai.google.dev/gemini-api/docs/veo).
