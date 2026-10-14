@@ -93,3 +93,9 @@ Job records and prompts save in the browser workspace and combined JSON backups.
 The October 13 alternate-ending test first failed request validation (`allow_adult` instead of the text-to-video value `allow_all`). The corrected request started a job, which ended with Google internal error 13 and no video. That response does not establish a billing or content rejection. No automatic retry was made.
 
 Google lists `veo-3.1-fast-generate-preview` for earliest possible retirement on October 22, 2026, recommending `gemini-omni-1.1-flash`. Migration to the different API is still pending. See [model deprecations](https://ai.google.dev/gemini-api/docs/deprecations) and [Veo settings](https://ai.google.dev/gemini-api/docs/veo).
+
+## Creation studio interface
+
+Novel and Video are the primary workspace modes. New projects can start directly from a manuscript, shot prompt or story context. The video studio uses a dedicated prompt/settings column, large selected-job preview, and selectable generation history; its story direction inspector is hidden. Reusing a prompt or changing generation settings clears cost approval. Technical video access details are under Video access. On desktop the composer and outputs scroll independently; mobile stacks them with compact navigation. The current mode survives reload within the browser session.
+
+The layout adapts the composer/output hierarchy observed in Runway's guest Tools editor, with Re's own typography and muted lime palette. No third-party assets or unsupported generation controls are included.
