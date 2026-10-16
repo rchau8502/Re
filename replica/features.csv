@@ -1,0 +1,14 @@
+feature,area,priority,original,clone,notes
+Central mode composer,Create,must,yes,yes,Novel Video Context using existing Re data
+Primary navigation,Shell,must,yes,yes,Create Explore Projects
+Prompt starter library,Explore,must,yes,yes,Original illustration and prompts only
+Session/project library,Projects,must,yes,yes,Real local workspace records
+Novel editor,Workspace,must,Re existing,yes,Preserve manual writing revision focus and export
+Story planning and world memory,Workspace,must,Re existing,yes,Preserve canon review and branch isolation
+Video result stage,Video,must,yes,yes,Actual signed jobs only; real provider playback not newly qualified
+Paid request approval,Video,must,Re existing,yes,Preserve access cost and uncertainty guards
+Responsive navigation,Shell,must,yes,yes,390px and desktop
+Seedance and Sora providers,Providers,skip,yes,no,No connected credentials or adapter
+Image/avatar generation,Providers,skip,yes,no,Not connected
+Canvas editing,Canvas,skip,yes,no,Separate product capability
+Community/cloud library,Assets,skip,yes,no,No social or cloud backend

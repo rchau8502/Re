@@ -13,3 +13,7 @@ output/playwright
 .deployment
 
 out
+
+# Reference-only screenshots must not ship with the product.
+replica/screens/
+replica/clone-screens/

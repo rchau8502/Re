@@ -99,3 +99,11 @@ Google lists `veo-3.1-fast-generate-preview` for earliest possible retirement on
 Novel and Video are the primary workspace modes. New projects can start directly from a manuscript, shot prompt or story context. The video studio uses a dedicated prompt/settings column, large selected-job preview, and selectable generation history; its story direction inspector is hidden. Reusing a prompt or changing generation settings clears cost approval. Technical video access details are under Video access. On desktop the composer and outputs scroll independently; mobile stacks them with compact navigation. The current mode survives reload within the browser session.
 
 The layout adapts the composer/output hierarchy observed in Runway's guest Tools editor, with Re's own typography and muted lime palette. No third-party assets or unsupported generation controls are included.
+
+## Reconstructed product interface (October 16, 2026)
+
+Create, Explore and Projects form the main navigation. Create keeps a central Novel / Video / Story context composer with exact-text import, optional project details and supported clip settings. Explore offers six original illustrated prompt starters; selection requires confirmation before replacing existing input and never calls a provider. Projects searches and reopens actual browser workspaces. Unsaved creation input survives navigation between these screens; it is not a saved project until opened. Workspace selection and active screen restore within the browser session.
+
+The writing workspace retains focus mode, reviewed passage replacement, branches, timelines and world memory. The video workspace uses a central composer and explicit cost approval with a selected-job stage and history. No API keys, provider adapters or storage schemas were replaced. Video provider success and actual media downloads remain unverified.
+
+Dreamina's public Create and Explore workflows informed the information hierarchy. Re uses original code, wording and concept artwork. Reference-only screenshots in `replica/screens/` are excluded from Git and deployment; no Dreamina media, accounts, model access or community content is included. Marketing on GitHub Pages remains separate.

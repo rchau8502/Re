@@ -9,3 +9,5 @@ output
 .playwright-cli
 *.tsbuildinfo
 scripts
+
+replica
