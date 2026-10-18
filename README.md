@@ -86,6 +86,8 @@ The connection indicator reports server configuration, not successful provider e
 
 The Video tab accepts a custom shot prompt or a reviewed draft/storyboard excerpt. It submits one 4-, 6-, or 8-second 720p Veo Fast clip, with landscape or portrait framing. Each request needs explicit cost approval. Set both `GEMINI_API_KEY` and a long random `VIDEO_ACCESS_CODE` as sensitive server environment variables; the owner enters the access code to unlock an eight-hour session. Neither secret is included in the browser bundle. This shared owner gate is not a multi-user account or billing system.
 
+After unlocking Video access, **Check model access** reads provider model metadata only. It never submits a generation request. The result distinguishes model access from billing, generation quota and successful video output, which remain unverified by this check. The authenticated response is not cached.
+
 Job records and prompts save in the browser workspace and combined JSON backups. Status checks do not generate clips. Provider and network failures do not automatically resubmit. An unknown submission outcome blocks further requests until the owner acknowledges the risk of a prior charge. This is a browser guard, not durable server idempotency across tabs or devices. Download completed files within two days.
 
 `npm run test:video` uses an offline provider stub and checks request validation, authentication, cost gating, failure handling, ticket integrity and backup compatibility. It does not prove a successful provider generation or production media download.
@@ -102,7 +104,7 @@ The layout adapts the composer/output hierarchy observed in Runway's guest Tools
 
 ## Reconstructed product interface (October 16, 2026)
 
-Create, Explore and Projects form the main navigation. Create keeps a central Novel / Video / Story context composer with exact-text import, optional project details and supported clip settings. Explore offers six original illustrated prompt starters; selection requires confirmation before replacing existing input and never calls a provider. Projects searches and reopens actual browser workspaces. Unsaved creation input survives navigation between these screens; it is not a saved project until opened. Workspace selection and active screen restore within the browser session.
+Create, Explore and Projects form the main navigation. Create keeps a central Novel / Video / Story context composer with exact-text import, optional project details and supported clip settings. Explore offers six original illustrated prompt starters; selection requires confirmation before replacing existing input and never calls a provider. Projects searches and reopens actual browser workspaces. Unsaved creation input survives navigation and reloads in the same tab using session storage, including its title, mode, direction and clip settings. New project explicitly resets this composer recovery. Closing the tab can remove it; open a project for durable browser storage. Unreadable recovery data is preserved and saving is paused rather than overwriting it. Workspace selection and active screen restore within the browser session.
 
 The writing workspace retains focus mode, reviewed passage replacement, branches, timelines and world memory. The video workspace uses a central composer and explicit cost approval with a selected-job stage and history. No API keys, provider adapters or storage schemas were replaced. Video provider success and actual media downloads remain unverified.
 

@@ -7,3 +7,5 @@
 2026-10-16 — S07 Video results: central prompt/settings, protected request approval and actual-job stage/history retained. Offline video checks passed; successful live provider generation and media playback remain unverified.
 2026-10-16 — Mobile: 390px Create/Explore layouts have no horizontal page overflow. Browser console reported no errors during local checks.
 S01 marketing: intentionally unchanged under the approved full-product scope.
+
+2026-10-17 — Continuation: reproduced unfinished composer loss on reload; added validated tab-session recovery with page-exit flush and explicit New project reset. Browser verified exact multilingual novel/title/direction and video prompt/duration/framing recovery; existing projects retained. Added owner-only read-only model metadata diagnostic; offline tests verify access, denial, redaction and no generation calls. Paid generation remains untested.

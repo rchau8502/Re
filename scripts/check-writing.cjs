@@ -15,4 +15,14 @@ queue.schedule('parent','final text');queue.flush();queue.dispose();assert.equal
 assert.equal(textMetrics('Hello, world.').words,2);assert.equal(textMetrics('').minutes,0);assert.equal(textMetrics('😀').characters,1);assert(textMetrics('世界末日旅行社的故事').words>0);
 assert.deepEqual(findPassages('Aria aria ARIA','aria'),[{start:0,end:4},{start:5,end:9},{start:10,end:14}]);
 assert.deepEqual(findPassages('a.b axb','a.b'),[{start:0,end:3}]);assert.deepEqual(findPassages('İ aria','aria'),[{start:2,end:6}]);assert.deepEqual(findPassages('abc',''),[]);assert.equal(findPassages('a'.repeat(2500),'a').length,2000);
+const {CREATOR_DRAFT_KEY,loadCreatorDraft,saveCreatorDraft,clearCreatorDraft}=require('../lib/modules/writing/creator-draft.ts');
+const stored=new Map(),storage={getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)};
+const creator={title:'海岸',text:'Exact text — 世界\n😀',kind:'draft',direction:'Another ending',duration:8,ratio:'9:16'};
+assert.equal(loadCreatorDraft(storage),null);saveCreatorDraft(storage,creator);assert.deepEqual(loadCreatorDraft(storage),creator);
+assert.throws(()=>saveCreatorDraft(storage,{...creator,text:'x'.repeat(100001)}),/Invalid/);assert.deepEqual(loadCreatorDraft(storage),creator);
+stored.set(CREATOR_DRAFT_KEY,'unreadable original');assert.throws(()=>loadCreatorDraft(storage));assert.equal(stored.get(CREATOR_DRAFT_KEY),'unreadable original');
+assert.throws(()=>loadCreatorDraft({getItem(){throw Error('Blocked')}}),/Blocked/);
+assert.throws(()=>saveCreatorDraft({setItem(){throw Error('Full')}},creator),/Full/);
+clearCreatorDraft(storage);assert.equal(loadCreatorDraft(storage),null);
+console.log('PASS: composer recovery round trip, bounds, unreadable data preservation, storage failures and explicit reset.');
 console.log('PASS: coalesced saves, continuous-typing deadline, branch isolation, navigation flush, failure retry, timer cleanup, multilingual metrics and original search offsets.');

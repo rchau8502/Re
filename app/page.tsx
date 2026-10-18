@@ -9,6 +9,7 @@ import {StoryStart} from './features/writing/story-start';
 import {StarterGallery,ProjectLibrary} from './features/studio/library';
 import type {Starter} from './features/studio/catalog';
 import {createSaveQueue} from '@/lib/modules/writing/save-queue';
+import {clearCreatorDraft} from '@/lib/modules/writing/creator-draft';
 import {WritingRevisions} from './features/world/writing-revisions';
 import {getWriting,saveWriting} from '@/lib/modules/writing';
 import type {WorldContext} from '@/lib/modules/core/types';
@@ -118,7 +119,7 @@ export default function Home(){
  }catch(e){setError(e instanceof Error?e.message:'This file is not a valid workspace backup.')}}
  function exportBackup(){flushWriting();try{const repo=new LocalProjectRepository(localStorage);const projects=[...new Set(items.flatMap(w=>w.worldContext?[w.worldContext.projectId]:[]))].map(id=>{const p=repo.load(id);if(!p)throw Error('World memory is missing. Export cancelled to avoid an incomplete backup.');return p});download('restory-backup.json',JSON.stringify({format:'story-world-workspaces',version:1,workspaces:items,projects},null,2),'application/json')}catch(e){setError(e instanceof Error?e.message:'Backup failed')}}
  function navigate(view:'create'|'explore'|'projects'){if(busy)return;flushWriting();setFocusWriting(false);setSurface(view)}
- function newProject(){if(busy)return;flushWriting();setSeed(null);setCreatorKey(v=>v+1);setSurface('create');setFocusWriting(false)}
+ function newProject(){if(busy)return;flushWriting();try{clearCreatorDraft(sessionStorage)}catch{setError('Composer recovery could not be reset. Copy your current input before trying again.');return}setSeed(null);setCreatorKey(v=>v+1);setSurface('create');setFocusWriting(false)}
  function chooseStarter(value:Starter){if(busy)return;flushWriting();setSeed({...value});setSurface('create');setFocusWriting(false)}
  function openProject(id:string){if(busy)return;const project=itemsRef.current.find(v=>v.id===id);select(id);setTab(project?.story?'Draft':project?.video?'Video':'Universe')}
  const emptyPlan:Plan={premise:'',divergencePoint:'',alternateTimeline:[],consequences:[],keep:[],change:[]};
