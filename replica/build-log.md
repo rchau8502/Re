@@ -9,3 +9,5 @@
 S01 marketing: intentionally unchanged under the approved full-product scope.
 
 2026-10-17 — Continuation: reproduced unfinished composer loss on reload; added validated tab-session recovery with page-exit flush and explicit New project reset. Browser verified exact multilingual novel/title/direction and video prompt/duration/framing recovery; existing projects retained. Added owner-only read-only model metadata diagnostic; offline tests verify access, denial, redaction and no generation calls. Paid generation remains untested.
+
+2026-10-19 — Video recovery: expired/invalid tickets terminate status checks; transient errors retain pending jobs. Added reported-failure guidance and technical details, preserved prompt reuse and fresh cost approval. Browser fixture verified one expired status request, no repeat poll, owner unlock on 127.0.0.1, internal error guidance and disabled generation after reuse. Fixed Next local origin rewriting with a same-port loopback Host check; cross-site and port-mismatch tests remain rejected. Google schedule rechecked: current Veo model shutdown October 22, 2026; Omni migration remains pending. No paid generation.

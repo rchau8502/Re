@@ -1,19 +1,25 @@
 // Offline tests only: provider and downloads are stubbed before loading server code.
 const fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),assert=require('node:assert/strict'),Module=require('node:module');
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,f);
-let reads=[],modelFailure,calls=[],state={done:false},failure,options;
+let polls=0,reads=[],modelFailure,calls=[],state={done:false},failure,options;
 const load=Module._load;
 Module._load=function(name,parent,main){
- if(name==='@google/genai')return {GenerateVideosOperation:class {},GoogleGenAI:class{constructor(o){options=o;this.models={get:async v=>{reads.push(v);if(modelFailure)throw modelFailure;return {name:'models/veo-3.1-fast-generate-preview',displayName:'Veo Fast'}},generateVideos:async v=>{calls.push(v);if(failure)throw failure;return {name:'models/veo-3.1-fast-generate-preview/operations/test'}}};this.operations={getVideosOperation:async()=>state}}}};
+ if(name==='@google/genai')return {GenerateVideosOperation:class {},GoogleGenAI:class{constructor(o){options=o;this.models={get:async v=>{reads.push(v);if(modelFailure)throw modelFailure;return {name:'models/veo-3.1-fast-generate-preview',displayName:'Veo Fast'}},generateVideos:async v=>{calls.push(v);if(failure)throw failure;return {name:'models/veo-3.1-fast-generate-preview/operations/test'}}};this.operations={getVideosOperation:async()=>{polls++;return state}}}}};
  return load.call(this,name.startsWith('@/')?path.resolve(__dirname,'..',name.slice(2)):name,parent,main);
 };
 process.env.GEMINI_API_KEY='offline-key';process.env.VIDEO_ACCESS_CODE='offline-code';
-const server=require('../lib/video-server.ts'),access=require('../app/api/video/access/route.ts'),generate=require('../app/api/video/route.ts'),status=require('../app/api/video/status/route.ts'),connection=require('../app/api/video/connection/route.ts');
+const server=require('../lib/video-server.ts'),access=require('../app/api/video/access/route.ts'),generate=require('../app/api/video/route.ts'),status=require('../app/api/video/status/route.ts'),connection=require('../app/api/video/connection/route.ts'),download=require('../app/api/video/download/route.ts');
 const {initialVideo,isVideoSettings}=require('../lib/modules/video/types.ts'),{newWorkspace,isWorkspace}=require('../lib/story.ts');
 const base='https://example.test',headers={origin:base,'Content-Type':'application/json'};
 function request(route,body,cookie,origin=base){return new Request(base+route,{method:body===undefined?'GET':'POST',headers:{...headers,origin,...(cookie?{cookie}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})})}
 (async()=>{
  assert.equal(server.videoConfigured(),true);
+ const localRequest=(origin,host='127.0.0.1:3006')=>new Request('http://localhost:3006/api/video/access',{headers:{origin,host}});
+ assert.equal(server.sameOrigin(localRequest('http://127.0.0.1:3006')),true);
+ assert.equal(server.sameOrigin(localRequest('http://127.0.0.1:3007')),false);
+ assert.equal(server.sameOrigin(localRequest('https://evil.test')),false);
+ assert.equal(server.sameOrigin(localRequest('http://127.0.0.1:3006','evil.test')),false);
+
  assert.equal((await generate.POST(request('/api/video',{}))).status,401);
  assert.equal((await access.POST(request('/api/video/access',{code:'wrong'}))).status,401);
  assert.equal((await access.POST(request('/api/video/access',{code:'offline-code'},undefined,'https://other.test'))).status,403);
@@ -32,11 +38,30 @@ function request(route,body,cookie,origin=base){return new Request(base+route,{m
  state={done:true,response:{raiMediaFilteredReasons:['Filtered by provider']}};assert.equal((await (await poll()).json()).status,'failed');
  state={done:true,response:{generatedVideos:[{video:{uri:'https://storage.googleapis.com/example.mp4'}}]}};assert.equal((await (await poll()).json()).status,'ready');
  await assert.rejects(()=>server.getVideo(ticket+'tampered'),/Invalid ticket/);
+ const now=Date.now;let expiredTicket;try{Date.now=()=>now()-49*60*60*1000;expiredTicket=server.jobTicket('models/'+server.VIDEO_MODEL+'/operations/expired')}finally{Date.now=now}
+ const pollCount=polls;
+ let invalid=await status.GET(request('/api/video/status?ticket='+encodeURIComponent(ticket+'tampered'),undefined,cookie));assert.equal(invalid.status,400);assert.equal((await invalid.json()).status,'failed');
+ let expired=await status.GET(request('/api/video/status?ticket='+encodeURIComponent(expiredTicket),undefined,cookie));assert.equal(expired.status,410);assert.match((await expired.json()).error,/expired/i);assert.equal(polls,pollCount);
+ const expiredDownload=await download.GET(request('/api/video/download?ticket='+encodeURIComponent(expiredTicket),undefined,cookie));assert.equal(expiredDownload.status,410);assert.equal(polls,pollCount);
+
  state.response.generatedVideos[0].video.uri='https://evil.test/video';await assert.rejects(()=>server.downloadVideo(ticket),/Unexpected video download host/);
  assert.equal(server.safeError(Error('offline-key offline-code')),'[redacted] [redacted]');
  failure=Object.assign(Error('Quota exceeded'),{status:429});let result=await (await generate.POST(request('/api/video',payload,cookie))).json();assert.equal(result.started,false);
  failure=Error('Connection lost');result=await (await generate.POST(request('/api/video',payload,cookie))).json();assert.equal(result.started,true);
+ const {videoPollResult,videoFailureHelp}=require('../lib/modules/video/recovery.ts');
+ assert.deepEqual(videoPollResult(410,{error:'Video ticket expired'}),{status:'failed',error:'Video ticket expired'});
+ assert.equal(videoPollResult(400,{error:'Invalid ticket'}).status,'failed');
+ assert.deepEqual(videoPollResult(200,{status:'ready'}),{status:'ready'});
+ assert.deepEqual(videoPollResult(200,{status:'pending'}),{status:'pending'});
+ assert.throws(()=>videoPollResult(502,{error:'Connection lost'}),/Connection lost/);
+ assert.throws(()=>videoPollResult(200,{}),/Unrecognized/);
+ assert.equal(videoFailureHelp('Video ticket expired').title,'Video access link expired');
+ assert.equal(videoFailureHelp('Provider error 13: Internal server issue').title,'Video provider error');
+ assert.equal(videoFailureHelp('Quota exceeded').title,'Video quota or rate limit reached');
+ assert.equal(videoFailureHelp('Permission denied').title,'Video access denied');
+ assert.equal(videoFailureHelp('Unrecognized failure').title,'This clip could not be generated');
+ assert(!videoFailureHelp('Provider error 13: Internal server issue').next.includes('enable billing'));
  const workspace=newWorkspace("Video test");assert.equal(isWorkspace(workspace),true);workspace.video=initialVideo();assert.equal(isWorkspace(JSON.parse(JSON.stringify(workspace))),true);
  assert.equal(isVideoSettings({...initialVideo(),jobs:[{id:'1',prompt:'test',duration:8,aspectRatio:'16:9',createdAt:'now',status:'ready'}]}),false);
- console.log('PASS: read-only model access (no generation), authentication, denial/redaction, offline video origin, cost guard, corrected parameter, single SDK attempt, pending/ready/provider failure, unknown outcome, ticket integrity, download host restriction, secret redaction and backup compatibility. No live generation performed.');
+ console.log('PASS: expired/invalid ticket terminal responses, no provider calls for expired status/download, transient poll preservation, failure guidance, read-only model access (no generation), authentication, denial/redaction, offline video origin, cost guard, corrected parameter, single SDK attempt, pending/ready/provider failure, unknown outcome, ticket integrity, download host restriction, secret redaction and backup compatibility. No live generation performed.');
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{Module._load=load;delete process.env.GEMINI_API_KEY;delete process.env.VIDEO_ACCESS_CODE});

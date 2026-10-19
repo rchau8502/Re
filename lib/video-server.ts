@@ -7,12 +7,17 @@ export function videoConfigured(){return !!process.env.GEMINI_API_KEY?.trim()&&!
 function key(){const k=process.env.VIDEO_ACCESS_CODE?.trim();if(!k)throw Error('Video access is not configured');return k}
 export function equal(a:string,b:string){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&x.length>0&&timingSafeEqual(x,y)}
 function sign(data:object){const body=Buffer.from(JSON.stringify(data)).toString('base64url');return body+'.'+createHmac('sha256',key()).update(body).digest('base64url')}
-function verify(value:string):Record<string,unknown>{if(value.length>4096)throw Error('Invalid ticket');const [body,sig,...rest]=value.split('.');if(rest.length||!body||!sig||!equal(sig,createHmac('sha256',key()).update(body).digest('base64url')))throw Error('Invalid ticket');const data=JSON.parse(Buffer.from(body,'base64url').toString());if(!data||typeof data.expires!=='number'||data.expires<Date.now())throw Error('This session or video ticket has expired');return data}
-export function sameOrigin(request:Request){return request.headers.get('origin')===new URL(request.url).origin}
+export class VideoTicketError extends Error {constructor(message:string,readonly status:400|410){super(message)}}
+function verify(value:string):Record<string,unknown>{if(value.length>4096)throw new VideoTicketError('Invalid ticket',400);const [body,sig,...rest]=value.split('.');if(rest.length||!body||!sig||!equal(sig,createHmac('sha256',key()).update(body).digest('base64url')))throw new VideoTicketError('Invalid ticket',400);let data;try{data=JSON.parse(Buffer.from(body,'base64url').toString())}catch{throw new VideoTicketError('Invalid ticket',400)}if(!data||typeof data.expires!=='number')throw new VideoTicketError('Invalid ticket',400);if(data.expires<=Date.now())throw new VideoTicketError('Video ticket expired. Your saved prompt is preserved; this access link cannot be renewed.',410);return data}
+export function sameOrigin(request:Request){const url=new URL(request.url),origin=request.headers.get('origin');if(origin===url.origin)return true;
+ // Next's local server rewrites 127.0.0.1 request URLs to localhost. Require
+ // the original loopback Host and exact port; public hosts get no exception.
+ const loopback='127.0.0.1'+(url.port?':'+url.port:'');return url.protocol==='http:'&&url.hostname==='localhost'&&request.headers.get('host')===loopback&&origin==='http://'+loopback;
+}
 export function videoAuthorized(request:Request){try{const cookie=request.headers.get('cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);if(!cookie)return false;return verify(cookie).kind==='session'}catch{return false}}
 export function accessCookie(request:Request){const token=sign({kind:'session',expires:Date.now()+8*60*60*1000});return `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/api/video; Max-Age=28800${new URL(request.url).protocol==='https:'?'; Secure':''}`}
 export function jobTicket(name:string){return sign({kind:'job',name,expires:Date.now()+48*60*60*1000})}
-function operationName(ticket:string){const d=verify(ticket);if(d.kind!=='job'||typeof d.name!=='string'||!d.name.startsWith('models/'+VIDEO_MODEL+'/operations/'))throw Error('Invalid video ticket');return d.name}
+function operationName(ticket:string){const d=verify(ticket);if(d.kind!=='job'||typeof d.name!=='string'||!d.name.startsWith('models/'+VIDEO_MODEL+'/operations/'))throw new VideoTicketError('Invalid video ticket',400);return d.name}
 function client(){return new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY,httpOptions:{timeout:20000,retryOptions:{attempts:1}}})}
 // Metadata only: never submits a generation or checks paid quota by creating a job.
 export async function videoConnection(){await client().models.get({model:VIDEO_MODEL});return {accessible:true,model:VIDEO_MODEL,generationTested:false,checkedAt:new Date().toISOString()}}

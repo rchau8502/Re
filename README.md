@@ -88,13 +88,15 @@ The Video tab accepts a custom shot prompt or a reviewed draft/storyboard excerp
 
 After unlocking Video access, **Check model access** reads provider model metadata only. It never submits a generation request. The result distinguishes model access from billing, generation quota and successful video output, which remain unverified by this check. The authenticated response is not cached.
 
+Expired or invalid job tickets stop polling and show recovery guidance while preserving the prompt. Temporary network failures retain the existing pending job. Provider errors, quota/access issues and expired links have distinct guidance with the original error under Technical details. Reuse prompt clears cost approval.
+
 Job records and prompts save in the browser workspace and combined JSON backups. Status checks do not generate clips. Provider and network failures do not automatically resubmit. An unknown submission outcome blocks further requests until the owner acknowledges the risk of a prior charge. This is a browser guard, not durable server idempotency across tabs or devices. Download completed files within two days.
 
 `npm run test:video` uses an offline provider stub and checks request validation, authentication, cost gating, failure handling, ticket integrity and backup compatibility. It does not prove a successful provider generation or production media download.
 
 The October 13 alternate-ending test first failed request validation (`allow_adult` instead of the text-to-video value `allow_all`). The corrected request started a job, which ended with Google internal error 13 and no video. That response does not establish a billing or content rejection. No automatic retry was made.
 
-Google lists `veo-3.1-fast-generate-preview` for earliest possible retirement on October 22, 2026, recommending `gemini-omni-1.1-flash`. Migration to the different API is still pending. See [model deprecations](https://ai.google.dev/gemini-api/docs/deprecations) and [Veo settings](https://ai.google.dev/gemini-api/docs/veo).
+As checked October 19, Google lists October 22, 2026 as the shutdown date for `veo-3.1-fast-generate-preview`, recommending `gemini-omni-1.1-flash`. Migration to the different API is still pending. See [model deprecations](https://ai.google.dev/gemini-api/docs/deprecations) and [Veo settings](https://ai.google.dev/gemini-api/docs/veo).
 
 ## Creation studio interface
 
