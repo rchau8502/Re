@@ -3,7 +3,9 @@ import type { AIProvider, GenerationRequest, GenerationResult } from './types';
 export class GeminiProvider implements AIProvider {
   constructor(private apiKey: string, private model: string) {}
   async generate(request: GenerationRequest): Promise<GenerationResult> {
-    const ai = new GoogleGenAI({apiKey:this.apiKey,httpOptions:{timeout:15000}});
+    // In the locked SDK, omitting retryOptions uses one fetch and preserves
+    // ApiError.status. Even attempts:1 enters its status-losing retry wrapper.
+    const ai = new GoogleGenAI({apiKey:this.apiKey,httpOptions:{timeout:60000}});
     const result = await ai.models.generateContent({
       model:this.model,contents:request.prompt,
       config:{abortSignal:request.signal,...(request.grounded ? {tools:[{googleSearch:{}}]} : {responseMimeType:'application/json',responseJsonSchema:request.schema}),maxOutputTokens:8192},

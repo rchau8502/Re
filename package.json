@@ -8,11 +8,22 @@
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test:video": "node scripts/check-video.cjs",
+    "test:history": "node scripts/check-chapter-history.cjs",
+    "test:novel": "node scripts/check-novel.cjs",
     "test:world": "node scripts/check-world.cjs",
     "test:writing": "node scripts/check-writing.cjs",
     "test:passage": "node scripts/check-passage.cjs",
     "local": "node scripts/local-runtime.cjs",
-    "build:pages": "node scripts/build-pages.cjs"
+    "build:pages": "node scripts/build-pages.cjs",
+    "test:continuity": "node scripts/check-continuity.cjs",
+    "test:threads": "node scripts/check-threads.cjs",
+    "test:backup": "node scripts/check-backup.cjs",
+    "test:style": "node scripts/check-source-style.cjs",
+    "test:prompts": "node scripts/check-prompts.cjs",
+    "test": "node scripts/check-release.cjs",
+    "verify": "node scripts/check-release.cjs --build",
+    "test:storage": "node scripts/check-storage-recovery.cjs",
+    "test:ui": "node scripts/check-ui.cjs"
   },
   "dependencies": {
     "@google/genai": "^1.0.0",

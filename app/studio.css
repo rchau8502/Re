@@ -12,3 +12,69 @@
 @media(prefers-reduced-motion:reduce){.re-studio button,.starter-art>img{transition:none}.starter-card:hover{transform:none}.re-studio .preview-symbol.is-running{animation:none}}
 @media(min-width:621px) and (max-width:1499px){.creation-home{margin-top:30px;margin-bottom:32px}.creator-heading{margin-bottom:23px}.creator-heading h1{font-size:42px}.creator-input textarea{height:120px;min-height:120px}.creator-mode-bar button{padding-top:12px;padding-bottom:12px}.creator-toolbar{padding-top:3px;padding-bottom:12px}.starter-library.compact .micro-label,.starter-library.compact .gallery-filters{display:none}.starter-library.compact .library-heading{margin-bottom:16px}}
 .re-studio .title-input{background:transparent;border:0;box-shadow:none}.studio-skip{position:fixed;top:10px;left:235px;transform:translateY(-150%);z-index:20;background:var(--accent);color:#11282c;padding:10px 16px;border-radius:8px}.studio-skip:focus{transform:none}
+
+/* Chapter workflow uses the existing editor and local writing persistence. */
+.novel-onboarding,.novel-workbench{border:1px solid var(--border,#353a40);border-radius:14px;padding:18px;margin:0 0 20px;background:var(--panel,#181c20)}
+.novel-onboarding{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.novel-onboarding p,.novel-workbench p{font-size:13px;line-height:1.6;color:var(--muted,#a7adaf)}
+.novel-workbench summary{cursor:pointer;font-weight:600;padding:10px 0}
+.novel-workbench label{display:flex;flex-direction:column;gap:7px;font-size:12px;margin:12px 0}
+.novel-workbench .toggle{flex-direction:row;align-items:flex-start}
+.novel-workbench .toggle input{width:auto}
+.novel-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.novel-heading,.novel-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.novel-heading label{flex:1;min-width:180px}
+.novel-workbench textarea,.novel-workbench input,.novel-workbench select{width:100%;min-width:0}
+.novel-workbench textarea{resize:vertical}
+.novel-workbench ul{padding-left:20px;font-size:13px;line-height:1.6}
+.novel-workbench blockquote{margin:5px 0 14px;color:var(--muted,#a7adaf);white-space:pre-wrap;overflow-wrap:anywhere}
+.novel-preview{border-top:1px solid var(--border,#353a40);padding-top:12px;margin-top:15px}
+.novel-preview dd{white-space:pre-wrap;margin:5px 0 15px;font-size:13px}
+.novel-preview dt{font-weight:600;font-size:12px}
+.writing-focus .novel-onboarding,.writing-focus .novel-workbench{display:none}
+@media(max-width:760px){.novel-fields{grid-template-columns:1fr}.novel-onboarding{align-items:stretch;flex-direction:column}.novel-actions button{flex:1 1 45%}}
+.novel-workbench>details{margin:0;padding:0;border:0}
+.novel-workbench details details{margin:0;padding:0;border-top:1px solid var(--line)}
+.novel-workbench summary{padding:12px 0}
+.novel-workbench>details>summary{padding:0 0 12px}
+.chapter-history>button{margin:0 0 8px}
+.chapter-history>small{display:block;line-height:1.6;color:var(--muted);margin-top:12px}
+.chapter-history-preview{margin-top:14px;border-left:2px solid var(--accent);padding-left:14px;overflow-wrap:anywhere}
+.chapter-history-preview textarea{font-family:Georgia,serif;line-height:1.8}
+.chapter-history-preview dt{font-size:11px;color:var(--muted)}
+.chapter-history-preview dd{margin:4px 0 10px;white-space:pre-wrap}
+
+.book-overview-scroll{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin:12px 0}
+.book-overview table{width:100%;min-width:540px;border-collapse:collapse;text-align:left;font-size:12px}
+.book-overview caption{text-align:left;padding:12px;color:var(--muted)}
+.book-overview th,.book-overview td{padding:10px;vertical-align:top;border-top:1px solid var(--line)}
+.book-overview thead th{color:var(--muted);font-weight:500}
+.book-overview tbody th{width:30%;font-weight:400}
+.book-overview tr[aria-current=true]{background:#a0e7ed0a}
+.book-overview tbody button{text-align:left;overflow-wrap:anywhere;max-width:100%}
+.book-overview th small{display:block;color:var(--accent);margin-top:5px}
+.book-overview td:nth-child(2){white-space:nowrap}
+.book-overview td:nth-child(3){font-variant-numeric:tabular-nums}
+.book-overview td p{white-space:pre-wrap;overflow-wrap:anywhere;max-width:32ch}
+.book-overview-scroll:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+.book-search-results{list-style:none;padding:0!important;max-height:420px;overflow:auto}
+.book-search-results li{padding:12px 0;border-top:1px solid var(--line)}
+.book-search-results button{text-align:left;overflow-wrap:anywhere}
+.book-search-results p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;color:var(--muted)}
+.book-search-results mark{background:#a0e7ed;color:#11282c;border-radius:2px;padding:0 2px}
+
+.plot-threads fieldset{border:1px solid var(--line);border-radius:9px;padding:10px 14px;margin:14px 0;min-width:0}
+.plot-threads legend{font-size:12px;padding:0 6px;color:var(--muted)}
+.plot-thread-list{list-style:none;padding:0!important;max-height:600px;overflow:auto}
+.plot-thread-list>li{padding:14px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.plot-thread-list h3{font-size:14px;margin:0 0 8px}
+.plot-thread-list .thread-notes{white-space:pre-wrap}
+.plot-threads small{display:block;color:var(--muted);line-height:1.6}
+
+.re-studio .video-continuation{width:100%;padding:20px;text-align:left;border-top:1px solid #344b59;background:#182b34;box-sizing:border-box}
+.re-studio .video-continuation h3{font-size:15px;margin:0 0 12px}
+.re-studio .video-continuation p{font-size:11px;line-height:1.7;color:#9eb6c3;overflow-wrap:anywhere}
+.re-studio .video-continuation label{font-size:11px;color:#b9cbd2}
+.re-studio .video-continuation textarea{width:100%;box-sizing:border-box}
+.re-studio .video-continuation button{margin-top:10px}

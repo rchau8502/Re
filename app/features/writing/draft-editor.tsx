@@ -1,14 +1,21 @@
 'use client';
-import {useDeferredValue,useMemo,useRef,useState} from 'react';
+import {useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {PassageRevision} from './passage-revision';
 import {selectPassage,type PassageSelection} from '@/lib/modules/writing/passage';
 import type {Story} from '@/lib/story';
-import {findPassages,textMetrics} from '@/lib/modules/writing/text';
-type Props={workspaceId:string;configured:boolean;context:()=>Record<string,unknown>;settings:()=>void;replace:(text:string,expected:string)=>void;story:Story;change:(patch:Partial<Story>)=>void;focus:boolean;toggleFocus:()=>void;saved:string;busy:boolean;generate:()=>void};
-export function DraftEditor({workspaceId,configured,context,settings,replace,story,change,focus,toggleFocus,saved,busy,generate}:Props) {
+import {findPassages,textMetrics,type TextLocation} from '@/lib/modules/writing/text';
+type Props={onLocated?:(requestId:string)=>void;location?:TextLocation;workspaceId:string;configured:boolean;context:()=>Record<string,unknown>;settings:()=>void;replace:(text:string,expected:string)=>void;story:Story;change:(patch:Partial<Story>)=>void;focus:boolean;toggleFocus:()=>void;saved:string;busy:boolean;generate:()=>void};
+export function DraftEditor({onLocated,location,workspaceId,configured,context,settings,replace,story,change,focus,toggleFocus,saved,busy,generate}:Props) {
   const editor=useRef<HTMLTextAreaElement>(null);
   const [size,setSize]=useState('comfortable'),[read,setRead]=useState(false),[finding,setFinding]=useState(false),[query,setQuery]=useState(''),[match,setMatch]=useState(-1),[selected,setSelected]=useState(0);
   const [revision,setRevision]=useState<{selection:PassageSelection;id:string}|null>(null),[revisionError,setRevisionError]=useState(''),[undo,setUndo]=useState<{before:string;after:string}|null>(null);
+  const located=useRef('');
+  useEffect(()=>{
+    if(!location||located.current===location.requestId||location.workspaceId!==workspaceId||location.chapterId!==story.novel?.activeChapterId||location.body!==story.scene)return;
+    setRead(false);
+    const frame=requestAnimationFrame(()=>{const input=editor.current;if(!input)return;located.current=location.requestId;input.focus();input.setSelectionRange(location.start,location.end);setSelected(location.end-location.start);onLocated?.(location.requestId)});
+    return()=>cancelAnimationFrame(frame);
+  },[location,workspaceId,story.novel?.activeChapterId,story.scene,onLocated]);
   function revise(){try{const input=editor.current;if(!input)throw Error('Switch to Edit and select a passage.');setRevision({selection:selectPassage(workspaceId,story.scene,input.selectionStart,input.selectionEnd),id:crypto.randomUUID()});setRevisionError('')}catch(e){setRevisionError(e instanceof Error?e.message:'Select a passage first.')}}
   function applyReplacement(text:string){replace(text,story.scene);setUndo({before:story.scene,after:text});setSelected(0)}
   const deferred=useDeferredValue(story.scene),stats=useMemo(()=>textMetrics(deferred),[deferred]);
@@ -28,6 +35,6 @@ export function DraftEditor({workspaceId,configured,context,settings,replace,sto
     <div className="manuscript"><label className="manuscript-title"><span className="sr-only">Draft title</span><input placeholder="Untitled draft" value={story.title} onChange={e=>change({title:e.target.value})}/></label>
     {read?<article className="manuscript-reading" aria-label="Draft reading view">{story.scene || 'Your draft is empty. Switch to Edit to begin.'}</article>:<label className="manuscript-body"><span className="sr-only">Story</span><textarea ref={editor} aria-label="Story" value={story.scene} onChange={e=>change({scene:e.target.value})} onSelect={e=>setSelected(e.currentTarget.selectionEnd-e.currentTarget.selectionStart)} placeholder="Start writing…" spellCheck rows={16}/></label>}
     </div>
-    <div className="draft-footer"><span role="status">{saved}</span><button disabled={busy} onClick={generate}>{busy?'Writing…':'Rewrite with Director'}</button></div>
+    <div className="draft-footer"><span role="status">{saved}</span><button hidden={!!story.novel} disabled={busy} onClick={generate}>{busy?'Writing…':'Rewrite with Director'}</button></div>
   </section>;
 }

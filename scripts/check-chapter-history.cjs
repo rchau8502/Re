@@ -1,0 +1,36 @@
+const fs=require('node:fs'),ts=require('typescript'),assert=require('node:assert/strict');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,f);
+const {enableNovel,editManuscript,updateNotebook,addChapter,selectChapter,checkpointChapter,restoreChapterCheckpoint,recordChapter,confirmChapterContinuity,emptyBlueprint,applyNovelSuggestion,undoNovelSuggestion,exportManuscript}=require('../lib/modules/novel/index.ts');
+const {isStory,newWorkspace,isWorkspace}=require('../lib/story.ts');
+const original={title:'明天的信',premise:'门边的信',divergencePoint:'',changesFromCanon:[],alternateTimeline:[],storySummary:'',scene:'沈航在门边拾起一封信。',storyboard:[]};
+const realNow=Date.now;let now=realNow();Date.now=()=>now;
+try {
+ let story=enableNovel(original),first=story.novel.activeChapterId;
+ story=editManuscript(story,{scene:'沈航把信放进口袋。'});assert.equal(story.novel.history.length,1);const earliest=story.novel.history[0];assert.equal(earliest.body,original.scene);
+ now+=1000;story=editManuscript(story,{scene:'沈航把信放进口袋，走向车站。'});assert.equal(story.novel.history.length,1);
+ now+=30000;story=editManuscript(story,{scene:'车站的钟停在六点。'});assert.equal(story.novel.history.length,2);
+ story=checkpointChapter(story,first);const manual=story.novel.history.at(-1);assert.equal(manual.reason,'manual');assert.equal(manual.body,story.scene);
+ story=editManuscript(story,{scene:'这段新正文必须在恢复后保留。'});story.novel.continuity.authorTruth='作者真相仍不公开';const latest=story.scene;
+ story=restoreChapterCheckpoint(story,first,earliest.id);assert.equal(story.scene,original.scene);assert(story.novel.history.some(h=>h.body===latest));assert.equal(story.novel.continuity.authorTruth,'作者真相仍不公开');assert.notEqual(story.novel.chapters[0].committedRevision,story.novel.chapters[0].revision);
+ const count=story.novel.history.length;story=selectChapter(story,first);assert.equal(story.novel.history.length,count);
+ const expected=structuredClone(story);story=applyNovelSuggestion(story,expected,{action:'chapter',text:'改写后的正文。'});assert(story.novel.history.some(h=>h.body===original.scene));const after=structuredClone(story);
+ story=undoNovelSuggestion(story,expected,after);assert.equal(story.scene,expected.scene);assert(story.novel.history.some(h=>h.body===after.scene));
+ let child=structuredClone(story);child=editManuscript(child,{scene:'分支正文。'});child=checkpointChapter(child,first);assert.notEqual(child.scene,story.scene);assert(child.novel.history.some(h=>h.body==='分支正文。'));assert(!story.novel.history.some(h=>h.body==='分支正文。'));
+ const savedId=story.novel.history[0].id;story=addChapter(story);assert.throws(()=>restoreChapterCheckpoint(story,story.novel.activeChapterId,savedId),/chapter/i);
+ story=selectChapter(story,first);
+ for(let i=0;i<20;i++){now+=10;story=editManuscript(story,{scene:`第${i}次修订的正文。`});story=checkpointChapter(story,first)}assert(story.novel.history.filter(h=>h.chapterId===first).length<=8);assert(story.novel.history.length<=64);
+ let completed=enableNovel(original),ready=structuredClone(completed.novel);ready.outline='大纲';ready.chapters[0].continuity.position='门口';ready.chapters[0].blueprint={goal:'寻找寄件人',emotion:'好奇',conflict:'没有署名',beats:'拾信，查看，出发',ending:'去车站',withhold:'寄件人',pov:'沈航',minChars:1,maxChars:1000};completed=confirmChapterContinuity(updateNotebook(completed,ready));completed=recordChapter(completed,completed.novel.activeChapterId,'拾到一封信');completed=checkpointChapter(completed,completed.novel.activeChapterId);const completedRevision=completed.novel.chapters[0].revision;completed=restoreChapterCheckpoint(completed,completed.novel.activeChapterId,completed.novel.history.at(-1).id);assert.equal(completed.novel.chapters[0].committedRevision,undefined);assert(completed.novel.chapters[0].revision>completedRevision);
+ const exported=exportManuscript(story);assert(!exported.includes('这段新正文必须在恢复后保留'));assert(!exported.includes('作者真相仍不公开'));
+ assert(isStory(story));assert(isWorkspace(JSON.parse(JSON.stringify({...newWorkspace('Book'),story}))));
+ const invalid=structuredClone(story);invalid.novel.history[0].chapterId='foreign';assert(!isStory(invalid));
+ const duplicate=structuredClone(story);duplicate.novel.history.push({...duplicate.novel.history[0]});assert(!isStory(duplicate));
+ const legacy=structuredClone(story);delete legacy.novel.history;assert(isStory(legacy));
+ let full=enableNovel({...original,scene:'甲'.repeat(100000)});full=addChapter(full);full=editManuscript(full,{scene:'乙'.repeat(100000)});full=addChapter(full);full=editManuscript(full,{scene:'丙'.repeat(60000)});full=selectChapter(full,full.novel.chapters[0].id);
+ assert.throws(()=>checkpointChapter(full,full.novel.activeChapterId),/space|limit|fit/i);
+ full=editManuscript(full,{scene:'丁'.repeat(100000)});assert.equal(full.scene.length,100000);assert(isStory(full));
+ const {createProject}=require('../lib/modules/core/types.ts'),{saveWriting}=require('../lib/modules/writing/index.ts'),{exportProject,restoreProject}=require('../lib/modules/backup/index.ts');
+ let project=createProject('History');project=saveWriting(project,{projectId:project.project.id,branchId:project.project.canonBranchId},'workspace',{content:story});assert.deepEqual(restoreProject(exportProject(project)).writing.drafts[0].content,story);
+ const card=structuredClone(story.novel);card.chapters[0].continuity.position='门口';story=confirmChapterContinuity(updateNotebook(story,card));
+ const {validateNovelRequest,novelPrompt}=require('../lib/modules/novel/ai.ts');const prompt=novelPrompt(validateNovelRequest({notebook:story.novel,chapterId:first,requestId:'test',action:'review',instruction:'Review the current chapter'}),{});assert(!prompt.includes('before-restore'));assert(!prompt.includes('这段新正文必须在恢复后保留'));
+ console.log('PASS: chapter autosave coalescing, manual checkpoints, pre-restore preservation, safe AI undo, scoped restore, branch isolation, retention/capacity, legacy/malformed archives, world backup roundtrip and history exclusion from exports/AI. No provider calls.');
+}finally{Date.now=realNow}

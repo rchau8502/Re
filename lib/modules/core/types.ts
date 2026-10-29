@@ -1,4 +1,5 @@
 export type NarrativeContent = {
+  novel?: import('../novel').NovelState;
   title: string;
   premise: string;
   divergencePoint: string;

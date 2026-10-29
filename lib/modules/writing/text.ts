@@ -1,3 +1,4 @@
+export type TextLocation={requestId:string;workspaceId:string;chapterId?:string;body:string;start:number;end:number};
 export function textMetrics(text:string) {
   let words=0,characters=0;
   for(const segment of new Intl.Segmenter(undefined,{granularity:'word'}).segment(text))if(segment.isWordLike)words++;

@@ -17,3 +17,8 @@ out
 # Reference-only screenshots must not ship with the product.
 replica/screens/
 replica/clone-screens/
+
+# Local signed video recovery tickets
+output/**/submission-private.json
+
+output/**/*-private.json

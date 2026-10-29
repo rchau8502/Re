@@ -1,4 +1,6 @@
+import {isNovelState,activeChapter} from './modules/novel';
 import {isVideoSettings,type VideoSettings} from './modules/video/types';
+import {isSourceStyle,type SourceStyle} from './modules/writing/source-style';
 import type { WorldContext,NarrativeContent } from './modules/core/types';
 export type Message = { id: string; role: 'user' | 'director'; text: string };
 export type Bible = {
@@ -20,6 +22,7 @@ export type Bible = {
   sources: { title: string; url: string }[];
 };
 export type Preferences = {
+  sourceStyle?:SourceStyle;
   targetChange: string;
   startingPoint: string;
   desiredTone: string;
@@ -92,7 +95,7 @@ export function isPreferences(value: unknown): value is Preferences {
   if (!value || typeof value !== 'object') return false;
   const p = value as Preferences;
   const defaults = initialPreferences();
-  return ['targetChange', 'startingPoint', 'desiredTone'].every(k => typeof (p as unknown as Record<string, unknown>)[k] === 'string')
+  return (p.sourceStyle===undefined||isSourceStyle(p.sourceStyle)) && ['targetChange', 'startingPoint', 'desiredTone'].every(k => typeof (p as unknown as Record<string, unknown>)[k] === 'string')
     && ['Prose', 'Outline', 'Storyboard'].includes(p.outputMedium)
     && ['Short scene', 'Full chapter', 'Story outline'].includes(p.outputLength)
     && !!p.controls && Object.keys(defaults.controls).every(k => typeof p.controls[k] === 'number' && p.controls[k] >= 0 && p.controls[k] <= 100)
@@ -107,7 +110,7 @@ export function isPlan(value: unknown): value is Plan {
 export function isStory(value: unknown): value is Story {
   if (!value || typeof value !== 'object') return false;
   const s = value as Story;
-  return ['title','premise','divergencePoint','storySummary','scene'].every(k => typeof (s as unknown as Record<string,unknown>)[k] === 'string')
+  return (s.novel===undefined || isNovelState(s.novel)&&activeChapter(s.novel).body===s.scene) && ['title','premise','divergencePoint','storySummary','scene'].every(k => typeof (s as unknown as Record<string,unknown>)[k] === 'string')
     && ['changesFromCanon','alternateTimeline'].every(k => Array.isArray((s as unknown as Record<string,unknown>)[k]) && (s as unknown as Record<string,string[]>)[k].every(v => typeof v === 'string'))
     && Array.isArray(s.storyboard) && s.storyboard.every(p => p && ['shot','action','dialogue'].every(k => typeof (p as unknown as Record<string,unknown>)[k] === 'string'));
 }
