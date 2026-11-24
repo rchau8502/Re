@@ -5,7 +5,7 @@ Updated: 2026-10-09. Integration checkout: Re_Story. CanonKeep desktop/web sourc
 ## Completed
 
 - Inspected both READMEs and the implementation of models, routes, storage, retrieval, providers, desktop IPC, guest projection, images, backups and history.
-- Created MERGE_ANALYSIS.md with foundation choice, feature inventory, module mapping/disposition, architecture, conflicts, risks and additive migration order.
+- Created notes/MERGE_ANALYSIS.md with foundation choice, feature inventory, module mapping/disposition, architecture, conflicts, risks and additive migration order.
 - Added portable contracts covering world, branch, canon, timeline, provenance, proposals and writing/media entities.
 - Added a single branch resolver: nested ancestry, subject/predicate overrides, temporal validity, divergence cutoffs, tombstones and branch comparison.
 - Added proposal/review services: proposals are separate from facts; rejection is recorded; baseline canon requires explicit approval; review cannot apply a proposal from another branch.

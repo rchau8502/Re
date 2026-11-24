@@ -52,7 +52,7 @@ Director, timeline and writing requests include a bounded, branch-resolved selec
 
 World memory saves in separate browser records. Export backup includes writing workspaces and their referenced worlds. Legacy workspace-only backups remain importable; standalone world backups restore as a new universe. No existing SQLite database or Supabase table is migrated. Keep CanonKeep's desktop application for its existing images/maps, guest reveals, GM notes, independent playthroughs and persistent undo/redo until those adapters are integrated.
 
-Architecture and migration details: [MERGE_ANALYSIS.md](MERGE_ANALYSIS.md). Current completion and limitations: [MERGE_PROGRESS.md](MERGE_PROGRESS.md). `npm run test:world` checks inheritance, proposals, temporal state, continuity warnings, backup validation and retrieval. This is an incremental integration, not the completed production merger.
+Architecture and migration details: [MERGE_ANALYSIS.md](notes/MERGE_ANALYSIS.md). Current completion and limitations: [MERGE_PROGRESS.md](notes/MERGE_PROGRESS.md). `npm run test:world` checks inheritance, proposals, temporal state, continuity warnings, backup validation and retrieval. This is an incremental integration, not the completed production merger.
 
 CanonKeep world exports (v1/v2) can now be imported from World memory. Imported entry text is staged for review and stays private, including GM notes. The original package is retained for export back to CanonKeep; its maps/images are preserved as opaque archive material, not rendered. Full CanonKeep library backups and playthroughs still require the original desktop application.
 
